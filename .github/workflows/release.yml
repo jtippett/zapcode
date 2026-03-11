@@ -141,6 +141,19 @@ jobs:
         run: npm publish --access public --tag latest || echo "Already published, skipping"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Build zapcode-ai
+        working-directory: packages/zapcode-ai
+        run: |
+          npm install
+          npm run build
+      - name: Copy README to zapcode-ai
+        run: cp README.md packages/zapcode-ai/README.md
+      - name: Publish zapcode-ai
+        if: ${{ !inputs.dry_run }}
+        working-directory: packages/zapcode-ai
+        run: npm publish --access public --tag latest || echo "Already published, skipping"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # ── Build & publish PyPI (per-platform) ──────────────────────────────
   build-pypi:
