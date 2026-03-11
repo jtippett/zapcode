@@ -156,7 +156,26 @@ Run benchmarks: `cargo bench`
 
 ## Installation
 
-> **Note:** Baldrick is experimental. Prebuilt binaries for npm/PyPI are not published yet. For now, you build from source. This will change once CI is set up.
+### Quick install
+
+The install script auto-detects your project type, installs prerequisites, builds native bindings, and links them into your project:
+
+```bash
+# Auto-detect from project files (package.json, Cargo.toml, pyproject.toml)
+curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash
+
+# Or specify the language explicitly
+curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash -s -- --lang ts
+curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash -s -- --lang python
+curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash -s -- --lang rust
+curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash -s -- --lang wasm
+```
+
+The script will install the Rust toolchain if needed, clone Baldrick to `~/.baldrick`, and build the native bindings for your platform.
+
+> **Note:** Prebuilt binaries for npm/PyPI are not published yet. The install script builds from source (~30s). This will change once CI is set up.
+
+### Manual install
 
 ### Rust
 
