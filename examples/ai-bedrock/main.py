@@ -94,10 +94,11 @@ def main():
         ]
     }
 
+    max_steps = 5
     steps = 0
     total_tokens = 0
 
-    while steps < 5:
+    while steps < max_steps:
         steps += 1
         response = bedrock.converse(
             modelId=MODEL_ID,
@@ -149,8 +150,11 @@ def main():
             print(f"Total (LLM + Zapcode): {total_ms:.0f}ms")
             print(f"Steps: {steps}")
             print(f"Tokens: {total_tokens}")
-            break
+            return
 
+    raise RuntimeError(
+        f"Model did not produce a final answer within {max_steps} steps"
+    )
 
 if __name__ == "__main__":
     main()
