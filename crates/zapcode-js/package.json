@@ -13,10 +13,27 @@
     "files": [
         "index.js",
         "index.d.ts",
-        "zapcode.*.node"
+        "npm"
     ],
     "napi": {
-        "name": "zapcode",
-        "triples": {}
+        "binaryName": "zapcode",
+        "targets": [
+            "x86_64-unknown-linux-gnu",
+            "x86_64-unknown-linux-musl",
+            "aarch64-unknown-linux-gnu",
+            "x86_64-apple-darwin",
+            "aarch64-apple-darwin",
+            "x86_64-pc-windows-msvc",
+            "aarch64-pc-windows-msvc"
+        ],
+        "packageName": "@unchartedfr/zapcode"
+    },
+    "scripts": {
+        "build": "napi build --release --platform --js index.js --dts index.d.ts",
+        "prepublishOnly": "napi prepublish -t npm",
+        "artifacts": "napi artifacts"
+    },
+    "devDependencies": {
+        "@napi-rs/cli": "^3.5.1"
     }
 }

@@ -56,11 +56,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install napi-rs CLI
-        run: npm install -g @napi-rs/cli
       - name: Build JS bindings
         working-directory: crates/zapcode-js
-        run: napi build --release
+        run: |
+          npm install
+          npx napi build --release --platform --js index.js --dts index.d.ts
       - name: Run basic example
         working-directory: examples/typescript
         run: |

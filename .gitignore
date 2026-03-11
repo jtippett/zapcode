@@ -12,6 +12,7 @@ package-lock.json
 *.node
 crates/zapcode-js/index.js
 crates/zapcode-js/index.d.ts
+crates/zapcode-js/npm/
 
 # Python
 __pycache__/
