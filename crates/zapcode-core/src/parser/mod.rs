@@ -262,10 +262,20 @@ impl<'a> AstLowerer<'a> {
                     s.span.start, s.span.end
                 )))
             }
-            _ => Err(ZapcodeError::UnsupportedSyntax {
-                span: "unknown".to_string(),
-                description: "unsupported statement type".to_string(),
-            }),
+            other => {
+                // Extract span from the unhandled statement for a useful error message
+                let span = match other {
+                    ast::Statement::WithStatement(s) => s.span,
+                    ast::Statement::TSModuleDeclaration(s) => s.span,
+                    ast::Statement::TSTypeAliasDeclaration(s) => s.span,
+                    ast::Statement::TSInterfaceDeclaration(s) => s.span,
+                    ast::Statement::TSImportEqualsDeclaration(s) => s.span,
+                    ast::Statement::TSExportAssignment(s) => s.span,
+                    ast::Statement::TSNamespaceExportDeclaration(s) => s.span,
+                    _ => oxc_span::Span::new(0, 0),
+                };
+                Err(self.unsupported(span, "unsupported statement type"))
+            }
         }
     }
 
