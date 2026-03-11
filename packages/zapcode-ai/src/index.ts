@@ -184,8 +184,10 @@ ${toolDocs}
 Rules:
 - Write ONLY TypeScript code, no markdown fences, no explanation.
 - The last expression in your code is the return value.
+- If the last expression is an object literal, wrap it in parentheses: \`({ key: value })\`.
 - You can use variables, loops, conditionals, array methods, etc.
 - All tool calls must use \`await\`.
+- Do NOT use regex, parseFloat, parseInt, or Number(). Tool functions return structured objects — access properties directly.
 - If the user's question doesn't need tools, you can compute the answer directly.`);
 
   return parts.join("\n\n");
