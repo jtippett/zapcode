@@ -1,0 +1,13 @@
+[package]
+name = "baldrick-examples"
+version = "0.0.1"
+edition = "2021"
+publish = false
+
+[[example]]
+name = "basic"
+path = "basic.rs"
+
+[dependencies]
+baldrick-core = { path = "../../crates/baldrick-core" }
+indexmap = "2"

@@ -203,17 +203,36 @@ case "$LANG" in
         fi
         ok "Python found ($(${PYTHON} --version))"
 
+        # Detect Python package manager
+        if check_cmd uv; then
+            PY_PM="uv"
+            ok "Using package manager: uv (Astral)"
+        elif check_cmd pip; then
+            PY_PM="pip"
+        elif check_cmd pip3; then
+            PY_PM="pip3"
+        else
+            fail "No Python package manager found. Install uv (https://docs.astral.sh/uv/) or pip."
+        fi
+
         # Check for maturin
         if ! check_cmd maturin; then
             info "Installing maturin..."
-            ${PYTHON} -m pip install maturin --quiet
+            case "$PY_PM" in
+                uv)   uv tool install maturin --quiet ;;
+                *)    ${PY_PM} install maturin --quiet ;;
+            esac
             ok "maturin installed"
         else
             ok "maturin found"
         fi
 
         # Build and install
-        (cd "$INSTALL_DIR/crates/baldrick-py" && maturin develop --release 2>&1 | tail -1)
+        if [[ "$PY_PM" == "uv" ]]; then
+            (cd "$INSTALL_DIR/crates/baldrick-py" && maturin develop --release --uv 2>&1 | tail -1)
+        else
+            (cd "$INSTALL_DIR/crates/baldrick-py" && maturin develop --release 2>&1 | tail -1)
+        fi
         ok "Baldrick installed into current Python environment"
 
         echo ""

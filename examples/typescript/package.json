@@ -1,0 +1,24 @@
+{
+  "name": "baldrick-examples",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Example usage of Baldrick with AI agents",
+  "scripts": {
+    "basic": "tsx basic.ts",
+    "agent:anthropic": "tsx ai-agent-anthropic.ts",
+    "agent:vercel": "tsx ai-agent-vercel-ai.ts"
+  },
+  "dependencies": {
+    "@baldrick/core": "file:../../crates/baldrick-js"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "ai": "^4.1.0",
+    "@ai-sdk/anthropic": "^1.1.0"
+  }
+}

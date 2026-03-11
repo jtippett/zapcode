@@ -103,12 +103,20 @@ npm link @baldrick/core      # in your project
 Once published to PyPI (coming soon):
 
 ```bash
-pip install baldrick
+pip install baldrick         # pip
+uv add baldrick              # uv (Astral)
 ```
 
 Until then, build from source — requires Rust toolchain + [maturin](https://github.com/PyO3/maturin):
 
 ```bash
+# With uv (recommended)
+uv tool install maturin
+git clone https://github.com/TheUncharted/baldrick.git
+cd baldrick/crates/baldrick-py
+maturin develop --release --uv
+
+# With pip
 pip install maturin
 git clone https://github.com/TheUncharted/baldrick.git
 cd baldrick/crates/baldrick-py

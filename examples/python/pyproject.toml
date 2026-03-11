@@ -1,0 +1,23 @@
+[project]
+name = "baldrick-examples"
+version = "0.0.1"
+description = "Example usage of Baldrick with AI agents"
+requires-python = ">=3.10"
+dependencies = [
+    "baldrick",
+]
+
+[project.optional-dependencies]
+ai = [
+    "anthropic>=0.39.0",
+]
+
+[tool.uv]
+dev-dependencies = []
+
+[tool.uv.sources]
+baldrick = { path = "../../crates/baldrick-py" }
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
