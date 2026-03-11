@@ -33,6 +33,7 @@ jobs:
   # ── Core tests (multi-OS) ──────────────────────────────────────────
   test:
     name: Test (${{ matrix.os }})
+    needs: lint
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -48,6 +49,7 @@ jobs:
   # ── JS bindings — build + e2e ───────────────────────────────────────
   e2e-js:
     name: E2E — JS bindings
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -70,6 +72,7 @@ jobs:
   # ── Python bindings — build + e2e ───────────────────────────────────
   e2e-python:
     name: E2E — Python bindings
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -90,6 +93,7 @@ jobs:
   # ── WASM — build + smoke test ───────────────────────────────────────
   e2e-wasm:
     name: E2E — WASM
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -110,6 +114,7 @@ jobs:
   # ── Performance smoke test ──────────────────────────────────────────
   bench:
     name: Benchmarks
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
