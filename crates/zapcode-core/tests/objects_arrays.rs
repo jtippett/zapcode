@@ -129,11 +129,12 @@ fn test_block_assignment_not_wrapped() {
 #[test]
 fn test_if_else_block_not_wrapped() {
     let result = eval_ts("const x = true\nif (x) { 1 } else { 2 }").unwrap();
-    // if/else returns last expression
-    assert!(matches!(
-        result,
-        Value::Int(1) | Value::Int(2) | Value::Undefined
-    ));
+    // if/else is a statement — must not be mistaken for an object literal
+    assert!(
+        !matches!(result, Value::Object(_)),
+        "if/else block was incorrectly wrapped as object literal, got {:?}",
+        result
+    );
 }
 
 #[test]
