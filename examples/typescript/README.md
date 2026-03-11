@@ -2,30 +2,32 @@
 
 ## Setup
 
-First, build the Zapcode native addon (requires Rust toolchain):
+### Prerequisites
+
+- [Rust toolchain](https://rustup.rs/) (for building the native addon)
+- [Node.js](https://nodejs.org/) (v18+)
+
+### Build the native addon
 
 ```bash
 cd ../../crates/zapcode-js
-cargo build -p zapcode-js --release
+npm install @napi-rs/cli --save-dev
+npx napi build --release --platform --js index.js --dts index.d.ts
 ```
 
-Then install dependencies:
+### Install dependencies
 
 ```bash
-# Pick your package manager
 npm install
-yarn install
-pnpm install
-bun install
 ```
 
 ## Run
 
 ```bash
-# Basic usage
-npm run basic          # or: bun run basic / yarn basic / pnpm basic
+# Basic usage (no API key needed)
+npm run basic
 
-# AI agent with @unchartedfr/zapcode-ai wrapper (recommended — requires ANTHROPIC_API_KEY)
+# AI agent with @unchartedfr/zapcode-ai wrapper (requires ANTHROPIC_API_KEY)
 export ANTHROPIC_API_KEY=sk-ant-...
 npm run agent
 

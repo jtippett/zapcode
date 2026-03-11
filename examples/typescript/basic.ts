@@ -32,7 +32,7 @@ const dataProcessor = new Zapcode(`
     ];
     const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
     const expensive = items.filter(item => item.price > 20);
-    { total, expensive: expensive.map(i => i.name) }
+    ({ total, expensive: expensive.map(i => i.name) })
 `);
 const dataResult = dataProcessor.run();
 console.log(dataResult.output);

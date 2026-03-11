@@ -1,12 +1,29 @@
-/target
+# Rust
+**/target
 **/*.rs.bk
 Cargo.lock
-*.swp
-*.swo
-.DS_Store
+
+# Node.js
 node_modules/
 dist/
+package-lock.json
+
+# NAPI-RS build artifacts
 *.node
+crates/zapcode-js/index.js
+crates/zapcode-js/index.d.ts
+
+# Python
 __pycache__/
 *.pyc
+.python-version
+
+# Editor
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Secrets
 .env

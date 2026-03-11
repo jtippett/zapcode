@@ -32,7 +32,7 @@ b = Zapcode("""
     ];
     const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
     const expensive = items.filter(item => item.price > 20).map(i => i.name);
-    { total, expensive }
+    ({ total, expensive })
 """)
 result = b.run()
 print(result["output"])  # {'total': 227.86, 'expensive': ['Widget', 'Gadget']}

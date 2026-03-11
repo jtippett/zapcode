@@ -1,8 +1,20 @@
 {
     "name": "@unchartedfr/zapcode",
     "version": "0.1.0",
+    "description": "A minimal, secure TypeScript interpreter for AI agents — Node.js bindings",
     "main": "index.js",
     "types": "index.d.ts",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/TheUncharted/zapcode.git",
+        "directory": "crates/zapcode-js"
+    },
+    "files": [
+        "index.js",
+        "index.d.ts",
+        "zapcode.*.node"
+    ],
     "napi": {
         "name": "zapcode",
         "triples": {}

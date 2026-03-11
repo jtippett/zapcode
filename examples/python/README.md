@@ -2,30 +2,44 @@
 
 ## Setup
 
-### With uv (recommended)
+### Prerequisites
+
+- [Rust toolchain](https://rustup.rs/) (for building the native module)
+- Python 3.10+ (recommended: [pyenv](https://github.com/pyenv/pyenv))
+- [uv](https://docs.astral.sh/uv/) or pip
+
+### Create a virtualenv (recommended)
+
+```bash
+pyenv virtualenv 3.13.8 zapcode
+pyenv local zapcode
+```
+
+### Build the native module
+
+```bash
+# Install maturin
+uv pip install maturin
+
+# Build and install zapcode
+cd ../../crates/zapcode-py
+maturin develop --release
+```
+
+### With uv (alternative)
 
 ```bash
 uv sync                    # install dependencies + build zapcode from source
 uv sync --extra ai         # also install anthropic SDK for the AI agent example
 ```
 
-### With pip
-
-```bash
-pip install maturin
-cd ../../crates/zapcode-py
-maturin develop --release
-cd ../../examples/python
-pip install anthropic      # for the AI agent example
-```
-
 ## Run
 
 ```bash
-# Basic usage
-python basic.py                     # or: uv run basic.py
+# Basic usage (no API key needed)
+python basic.py
 
-# AI agent with zapcode-ai wrapper (recommended — requires ANTHROPIC_API_KEY)
+# AI agent with zapcode-ai wrapper (requires ANTHROPIC_API_KEY)
 export ANTHROPIC_API_KEY=sk-ant-...
 python ai_agent_zapcode_ai.py
 

@@ -380,7 +380,7 @@ const processor = new Zapcode(`
         { name: "Gadget", price: 49.99, qty: 1 },
     ];
     const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
-    { total, names: items.map(i => i.name) }
+    ({ total, names: items.map(i => i.name) })
 `);
 console.log(processor.run().output);
 // { total: 127.96, names: ["Widget", "Gadget"] }
