@@ -107,7 +107,7 @@ fn wrap_trailing_object(source: &str) -> String {
             let p = part.trim();
             !p.is_empty()
                 && p.chars()
-                    .all(|c| c.is_alphanumeric() || c == '_' || c == '.' || c == ' ')
+                    .all(|c| c.is_alphanumeric() || c == '_' || c == ' ')
         })
     };
 
