@@ -99,6 +99,39 @@ Limits are checked during execution (not just at boundaries), so infinite loops,
 
 The `baldrick-core` crate contains **zero `unsafe` blocks**. Memory safety is guaranteed by the Rust compiler. There are no FFI calls, no raw pointers, no transmutes.
 
+### Adversarial test suite
+
+The sandbox is validated by **65 adversarial security tests** (`tests/security.rs`) that simulate real attack scenarios:
+
+| Attack category | Tests | Result |
+|---|---|---|
+| Prototype pollution (`Object.prototype`, `__proto__`) | 4 | Blocked |
+| Constructor chain escapes (`({}).constructor.constructor(...)`) | 3 | Blocked |
+| `eval`, `Function()`, indirect eval, dynamic import | 5 | Blocked at parse time |
+| `globalThis`, `process`, `require`, `import` | 6 | Blocked at parse time |
+| Stack overflow (direct + mutual recursion) | 2 | Caught by stack depth limit |
+| Memory exhaustion (huge arrays, string doubling) | 4 | Caught by allocation limit |
+| Infinite loops (`while(true)`, `for(;;)`) | 2 | Caught by time/allocation limit |
+| JSON bombs (deep nesting, huge payloads) | 2 | Depth-limited (max 64) |
+| Sparse array attacks (`arr[1e9]`, `arr[MAX_SAFE_INTEGER]`) | 3 | Capped growth (max +1024) |
+| toString/valueOf hijacking during coercion | 3 | Not invoked (by design) |
+| Unicode escapes for blocked keywords | 2 | Blocked |
+| Computed property access tricks | 2 | Returns undefined |
+| Timing side channels (`performance.now`) | 1 | Blocked |
+| Error message information leakage | 3 | No host paths/env exposed |
+| Type confusion attacks | 4 | Proper TypeError |
+| Promise/Generator internal abuse | 4 | No escape |
+| Negative array indices | 2 | Returns undefined |
+| `setTimeout`, `setInterval`, `Proxy`, `Reflect` | 6 | Blocked |
+| `with` statement, `arguments.callee` | 3 | Blocked |
+
+Run the security tests: `cargo test -p baldrick-core --test security`
+
+### Known limitations
+
+- `Object.freeze()` is not yet implemented — frozen objects can still be mutated. This is a correctness gap, not a sandbox escape.
+- User-defined `toString()`/`valueOf()` are not called during implicit type coercion. This is intentional (prevents injection) but differs from standard JavaScript behavior.
+
 ## Performance
 
 All benchmarks run on the full pipeline: parse → compile → execute. No caching, no warm-up.
@@ -116,6 +149,10 @@ All benchmarks run on the full pipeline: parse → compile → execute. No cachi
 | Fibonacci (n=10) | **138.4 µs** | Recursive function, 177 calls |
 
 Snapshot size for typical agent code with external calls: **< 2 KB**.
+
+**Resource overhead per execution**: each VM instance allocates ~10 KB of stack/heap. Memory is bounded by the configurable `memory_limit_bytes` (default 32 MB) and `max_allocations` (default 100,000). There is no background thread, no GC, and no runtime — CPU usage is exactly proportional to the instructions executed.
+
+Run benchmarks: `cargo bench`
 
 ## Usage
 
