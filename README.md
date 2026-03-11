@@ -154,6 +154,77 @@ Snapshot size for typical agent code with external calls: **< 2 KB**.
 
 Run benchmarks: `cargo bench`
 
+## Installation
+
+> **Note:** Baldrick is experimental. Prebuilt binaries for npm/PyPI are not published yet. For now, you build from source. This will change once CI is set up.
+
+### Rust
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+baldrick-core = { git = "https://github.com/TheUncharted/baldrick.git" }
+```
+
+### JavaScript / TypeScript (Node.js)
+
+The JS bindings use [napi-rs](https://napi.rs) — a native addon compiled from Rust. You need Rust installed to build from source:
+
+```bash
+# Prerequisites: Rust toolchain (https://rustup.rs)
+git clone https://github.com/TheUncharted/baldrick.git
+cd baldrick/crates/baldrick-js
+npm install
+npm run build   # or: cargo build -p baldrick-js --release
+```
+
+This produces a native `.node` binary. Copy `baldrick.*.node` and `index.js`/`index.d.ts` into your project, or link locally:
+
+```bash
+npm link        # in baldrick-js/
+npm link @baldrick/core  # in your project
+```
+
+Once published to npm (coming soon), this will be just:
+
+```bash
+npm install @baldrick/core    # npm
+yarn add @baldrick/core       # yarn
+pnpm add @baldrick/core       # pnpm
+bun add @baldrick/core        # bun
+```
+
+### Python
+
+The Python bindings use [PyO3](https://pyo3.rs) + [maturin](https://github.com/PyO3/maturin):
+
+```bash
+# Prerequisites: Rust toolchain + maturin
+pip install maturin
+
+git clone https://github.com/TheUncharted/baldrick.git
+cd baldrick/crates/baldrick-py
+maturin develop --release   # builds and installs into current venv
+```
+
+Once published to PyPI (coming soon), this will be just:
+
+```bash
+pip install baldrick
+```
+
+### WebAssembly
+
+```bash
+# Prerequisites: wasm-pack (https://rustwasm.github.io/wasm-pack/)
+git clone https://github.com/TheUncharted/baldrick.git
+cd baldrick/crates/baldrick-wasm
+wasm-pack build --target web
+```
+
+This outputs a `pkg/` directory you can import in any browser or bundler.
+
 ## Usage
 
 ### Rust
@@ -162,7 +233,17 @@ Run benchmarks: `cargo bench`
 use baldrick_core::{BaldrickRun, Value, ResourceLimits};
 use baldrick_core::vm::VmState;
 
-// Compile once
+// Simple execution
+let runner = BaldrickRun::new(
+    "1 + 2 * 3".to_string(),
+    vec![],
+    vec![],
+    ResourceLimits::default(),
+)?;
+let result = runner.run_simple()?;
+assert_eq!(result, Value::Int(7));
+
+// With inputs and external functions (snapshot/resume)
 let runner = BaldrickRun::new(
     r#"
         const response = await fetch(url);
@@ -200,15 +281,12 @@ match state {
 }
 ```
 
-### JavaScript / Node.js
-
-```bash
-npm install @baldrick/core
-```
+### JavaScript / TypeScript
 
 ```typescript
 import { Baldrick, BaldrickSnapshotHandle } from '@baldrick/core';
 
+// Create a sandbox with inputs and external functions
 const b = new Baldrick(`
     const data = await fetch(url);
     JSON.parse(data)
@@ -218,30 +296,26 @@ const b = new Baldrick(`
     timeLimitMs: 5000,
 });
 
-// Sync run (no external calls)
+// Simple run (no external calls needed)
 const result = b.run({ url: '"hello"' });
 if (result.completed) {
     console.log(result.output);  // "hello"
 }
 
-// Async run with snapshot/resume
+// Snapshot/resume flow (for external function calls)
 const state = b.start({ url: '"https://api.example.com"' });
 if (!state.completed) {
     console.log(state.functionName);  // "fetch"
     console.log(state.args);          // ["https://api.example.com"]
 
-    // Resolve externally, then resume
+    // You resolve the external call, then resume the VM
     const snapshot = BaldrickSnapshotHandle.load(state.snapshot);
     const final = snapshot.resume('{"status": "ok"}');
-    console.log(final.output);
+    console.log(final.output);  // { status: "ok" }
 }
 ```
 
 ### Python
-
-```bash
-pip install baldrick
-```
 
 ```python
 from baldrick import Baldrick, BaldrickSnapshot
@@ -257,6 +331,7 @@ if state["suspended"]:
     print(state["function_name"])  # "fetch"
     print(state["args"])           # ["https://api.example.com"]
 
+    # You resolve the external call, then resume
     snapshot = state["snapshot"]
     final = snapshot.resume("response data")
     print(final["output"])  # "response data done"
