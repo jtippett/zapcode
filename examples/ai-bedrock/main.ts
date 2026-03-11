@@ -55,8 +55,8 @@ const { system, tools } = zapcode({
       },
       execute: async ({ from, to }) => {
         return [
-          { airline: "BA", flight: "BA123", price: 450, departure: "08:00" },
-          { airline: "AF", flight: "AF456", price: 380, departure: "14:30" },
+          { from, to, airline: "BA", flight: "BA123", price: 450, departure: "08:00" },
+          { from, to, airline: "AF", flight: "AF456", price: 380, departure: "14:30" },
         ];
       },
     },

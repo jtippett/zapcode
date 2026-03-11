@@ -33,9 +33,11 @@ def get_weather(args):
 
 
 def search_flights(args):
+    origin = args["from"]
+    destination = args["to"]
     return [
-        {"airline": "BA", "flight": "BA123", "price": 450, "departure": "08:00"},
-        {"airline": "AF", "flight": "AF456", "price": 380, "departure": "14:30"},
+        {"from": origin, "to": destination, "airline": "BA", "flight": "BA123", "price": 450, "departure": "08:00"},
+        {"from": origin, "to": destination, "airline": "AF", "flight": "AF456", "price": 380, "departure": "14:30"},
     ]
 
 
