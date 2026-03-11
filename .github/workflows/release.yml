@@ -195,7 +195,8 @@ jobs:
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
-          args: --release --out dist -m crates/zapcode-py/Cargo.toml ${{ matrix.interpreter && format('-i {0}', matrix.interpreter) || '' }}
+          args: --release --out dist -m crates/zapcode-py/Cargo.toml
+          interpreter: ${{ matrix.interpreter }}
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
