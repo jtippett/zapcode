@@ -153,12 +153,27 @@ jobs:
             const fs = require('fs');
             const output = fs.readFileSync('bench-output.txt', 'utf8');
             const body = `## Benchmark Results\n\n\`\`\`\n${output}\n\`\`\``;
-            github.rest.issues.createComment({
+            const { data: comments } = await github.rest.issues.listComments({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body
             });
+            const existing = comments.find(c => c.body.startsWith('## Benchmark Results'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body
+              });
+            }
 
   # ── Security audit ──────────────────────────────────────────────────
   security:
