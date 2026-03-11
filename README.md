@@ -21,62 +21,453 @@ When LLMs write TypeScript, you need to run it safely. Containers add hundreds o
 
 Baldrick takes a different approach: a purpose-built TypeScript interpreter that starts in **under 2 microseconds**, enforces a security sandbox at the language level, and can snapshot execution state to bytes for later resumption — all in a single, embeddable library with zero dependencies on Node.js or V8.
 
-## What Baldrick can do
+## Benchmarks
 
-- **Execute a useful subset of TypeScript** with startup times measured in single-digit microseconds, not hundreds of milliseconds
-- **Block all access to the host** — no filesystem, network, environment variables, `eval`, `import`, or `require`. The only way to interact with the outside world is through registered external functions that you control
-- **Strip TypeScript types** at parse time — type annotations, interfaces, and type aliases are handled natively via [oxc](https://oxc.rs), no `tsc` needed
-- **Snapshot execution to bytes** and resume later, potentially in a different process or on a different machine — enabling durable, interruptible agent workflows
-- **Call from Rust, JavaScript/Node.js, Python, or WebAssembly** — thin binding layers over the same core engine
-- **Track and limit resource usage** — memory, allocations, stack depth, and wall-clock time, all configurable per execution
-- **Run async code** with `async`/`await` — external function calls suspend execution and return snapshots that the host resolves
-- **Support classes, generators, closures, try/catch**, and the full set of built-in methods on strings, arrays, objects, Math, JSON, and Promise
+All benchmarks run on the full pipeline: parse → compile → execute. No caching, no warm-up.
 
-## What Baldrick cannot do
+| Benchmark | Baldrick | Docker + Node.js | V8 Isolate |
+|---|---|---|---|
+| Simple expression (`1 + 2 * 3`) | **2.1 µs** | ~200-500 ms | ~5-50 ms |
+| Variable arithmetic | **2.8 µs** | — | — |
+| String concatenation | **2.6 µs** | — | — |
+| Template literal | **2.9 µs** | — | — |
+| Array creation | **2.4 µs** | — | — |
+| Object creation | **5.2 µs** | — | — |
+| Function call | **4.6 µs** | — | — |
+| Loop (100 iterations) | **77.8 µs** | — | — |
+| Fibonacci (n=10, 177 calls) | **138.4 µs** | — | — |
+| Snapshot size (typical agent) | **< 2 KB** | N/A | N/A |
+| Memory per execution | **~10 KB** | ~50+ MB | ~20+ MB |
+| Cold start | **~2 µs** | ~200-500 ms | ~5-50 ms |
+
+No background thread, no GC, no runtime — CPU usage is exactly proportional to the instructions executed.
+
+Run benchmarks: `cargo bench`
+
+## Quick start
+
+### One-line install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash
+```
+
+The script auto-detects your project type (TypeScript, Python, Rust, WASM), installs prerequisites, and builds native bindings. Or specify explicitly:
+
+```bash
+curl -fsSL ... | bash -s -- --lang ts      # TypeScript / JavaScript
+curl -fsSL ... | bash -s -- --lang python   # Python
+curl -fsSL ... | bash -s -- --lang rust     # Rust
+curl -fsSL ... | bash -s -- --lang wasm     # WebAssembly
+```
+
+### Install by language
+
+<details>
+<summary><strong>Rust</strong></summary>
+
+```toml
+[dependencies]
+baldrick-core = { git = "https://github.com/TheUncharted/baldrick.git" }
+```
+</details>
+
+<details>
+<summary><strong>JavaScript / TypeScript (Node.js)</strong></summary>
+
+Once published to npm (coming soon):
+
+```bash
+npm install @baldrick/core    # npm
+yarn add @baldrick/core       # yarn
+pnpm add @baldrick/core       # pnpm
+bun add @baldrick/core        # bun
+```
+
+Until then, build from source — requires Rust toolchain:
+
+```bash
+git clone https://github.com/TheUncharted/baldrick.git
+cd baldrick/crates/baldrick-js
+npm install && npm run build
+
+# Link into your project
+npm link                     # in baldrick-js/
+npm link @baldrick/core      # in your project
+```
+</details>
+
+<details>
+<summary><strong>Python</strong></summary>
+
+Once published to PyPI (coming soon):
+
+```bash
+pip install baldrick
+```
+
+Until then, build from source — requires Rust toolchain + [maturin](https://github.com/PyO3/maturin):
+
+```bash
+pip install maturin
+git clone https://github.com/TheUncharted/baldrick.git
+cd baldrick/crates/baldrick-py
+maturin develop --release
+```
+</details>
+
+<details>
+<summary><strong>WebAssembly</strong></summary>
+
+Requires [wasm-pack](https://rustwasm.github.io/wasm-pack/):
+
+```bash
+git clone https://github.com/TheUncharted/baldrick.git
+cd baldrick/crates/baldrick-wasm
+wasm-pack build --target web
+```
+
+This outputs a `pkg/` directory you can import in any browser or bundler.
+</details>
+
+## Usage
+
+### AI agent with tool calls (TypeScript + Anthropic)
+
+The core use case: Claude writes code, Baldrick runs it safely, and your app resolves tool calls.
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import { Baldrick, BaldrickSnapshotHandle } from "@baldrick/core";
+
+// Your tools — real implementations on your server
+const tools = {
+    getWeather: async (city: string) => {
+        const res = await fetch(`https://api.weather.com/${city}`);
+        return res.json();
+    },
+};
+
+// Ask Claude to write code
+const client = new Anthropic();
+const response = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1024,
+    system: `Write TypeScript to answer the user's question.
+Available functions (use await): getWeather(city: string) → { condition, temp }
+Input variable: userQuery (string). Last expression = output. No markdown fences.`,
+    messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
+});
+
+const code = response.content[0].type === "text" ? response.content[0].text : "";
+
+// Execute in the sandbox
+const sandbox = new Baldrick(code, {
+    inputs: ["userQuery"],
+    externalFunctions: ["getWeather"],
+    timeLimitMs: 10_000,
+});
+
+let state = sandbox.start({ userQuery: "What's the weather in Tokyo?" });
+
+// Resolve tool calls as Baldrick suspends on each one
+while (!state.completed) {
+    const result = await tools[state.functionName](...state.args);
+    const snapshot = BaldrickSnapshotHandle.load(state.snapshot);
+    state = snapshot.resume(result);
+}
+
+console.log(state.output);
+// "The weather in Tokyo is Clear, 26°C"
+```
+
+See [`examples/typescript/ai-agent-anthropic.ts`](examples/typescript/ai-agent-anthropic.ts) for the full working example, or [`examples/typescript/ai-agent-vercel-ai.ts`](examples/typescript/ai-agent-vercel-ai.ts) for a Vercel AI SDK version.
+
+### AI agent with tool calls (Python + Anthropic)
+
+```python
+import anthropic
+from baldrick import Baldrick
+
+# Ask Claude to write code
+client = anthropic.Anthropic()
+response = client.messages.create(
+    model="claude-sonnet-4-20250514",
+    max_tokens=1024,
+    system="""Write TypeScript to answer the user's question.
+Available functions (use await): getWeather(city: string) → { condition, temp }
+Input variable: userQuery (string). Last expression = output. No markdown fences.""",
+    messages=[{"role": "user", "content": "What's the weather in Tokyo?"}],
+)
+code = response.content[0].text
+
+# Execute in the sandbox
+sandbox = Baldrick(
+    code,
+    inputs=["userQuery"],
+    external_functions=["getWeather"],
+    time_limit_ms=10_000,
+)
+state = sandbox.start({"userQuery": "What's the weather in Tokyo?"})
+
+# Resolve tool calls
+while state.get("suspended"):
+    result = get_weather(*state["args"])  # your real implementation
+    state = state["snapshot"].resume(result)
+
+print(state["output"])
+```
+
+See [`examples/python/ai_agent_anthropic.py`](examples/python/ai_agent_anthropic.py) for the full working example.
+
+### Basic usage by language
+
+<details>
+<summary><strong>TypeScript / JavaScript</strong></summary>
+
+```typescript
+import { Baldrick, BaldrickSnapshotHandle } from '@baldrick/core';
+
+// Simple expression
+const b = new Baldrick('1 + 2 * 3');
+console.log(b.run().output);  // 7
+
+// With inputs
+const greeter = new Baldrick(
+    '`Hello, ${name}! You are ${age} years old.`',
+    { inputs: ['name', 'age'] },
+);
+console.log(greeter.run({ name: 'Baldrick', age: 30 }).output);
+
+// Data processing
+const processor = new Baldrick(`
+    const items = [
+        { name: "Widget", price: 25.99, qty: 3 },
+        { name: "Gadget", price: 49.99, qty: 1 },
+    ];
+    const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+    { total, names: items.map(i => i.name) }
+`);
+console.log(processor.run().output);
+// { total: 127.96, names: ["Widget", "Gadget"] }
+
+// External function (snapshot/resume)
+const app = new Baldrick(`const data = await fetch(url); data`, {
+    inputs: ['url'],
+    externalFunctions: ['fetch'],
+});
+const state = app.start({ url: 'https://api.example.com' });
+if (!state.completed) {
+    console.log(state.functionName);  // "fetch"
+    const snapshot = BaldrickSnapshotHandle.load(state.snapshot);
+    const final_ = snapshot.resume({ status: 'ok' });
+    console.log(final_.output);  // { status: "ok" }
+}
+
+// Classes
+const counter = new Baldrick(`
+    class Counter {
+        count: number;
+        constructor(start: number) { this.count = start; }
+        increment() { return ++this.count; }
+    }
+    const c = new Counter(10);
+    [c.increment(), c.increment(), c.increment()]
+`);
+console.log(counter.run().output);  // [11, 12, 13]
+```
+
+See [`examples/typescript/basic.ts`](examples/typescript/basic.ts) for the full example.
+</details>
+
+<details>
+<summary><strong>Rust</strong></summary>
+
+```rust
+use baldrick_core::{BaldrickRun, Value, ResourceLimits, VmState};
+
+// Simple expression
+let runner = BaldrickRun::new(
+    "1 + 2 * 3".to_string(), vec![], vec![],
+    ResourceLimits::default(),
+)?;
+assert_eq!(runner.run_simple()?, Value::Int(7));
+
+// With inputs and external functions (snapshot/resume)
+let runner = BaldrickRun::new(
+    r#"const weather = await getWeather(city);
+       `${city}: ${weather.condition}, ${weather.temp}°C`"#.to_string(),
+    vec!["city".to_string()],
+    vec!["getWeather".to_string()],
+    ResourceLimits::default(),
+)?;
+
+let state = runner.start(vec![
+    ("city".to_string(), Value::String("London".into())),
+])?;
+
+if let VmState::Suspended { snapshot, .. } = state {
+    let weather = Value::Object(indexmap::indexmap! {
+        "condition".into() => Value::String("Cloudy".into()),
+        "temp".into() => Value::Int(12),
+    });
+    let final_state = snapshot.resume(weather)?;
+    // VmState::Complete("London: Cloudy, 12°C")
+}
+```
+
+See [`examples/rust/basic.rs`](examples/rust/basic.rs) for the full example.
+</details>
+
+<details>
+<summary><strong>Python</strong></summary>
+
+```python
+from baldrick import Baldrick, BaldrickSnapshot
+
+# Simple expression
+b = Baldrick("1 + 2 * 3")
+print(b.run()["output"])  # 7
+
+# With inputs
+b = Baldrick(
+    '`Hello, ${name}!`',
+    inputs=["name"],
+)
+print(b.run({"name": "Baldrick"})["output"])  # "Hello, Baldrick!"
+
+# External function (snapshot/resume)
+b = Baldrick(
+    "const w = await getWeather(city); `${city}: ${w.temp}°C`",
+    inputs=["city"],
+    external_functions=["getWeather"],
+)
+state = b.start({"city": "London"})
+if state.get("suspended"):
+    result = state["snapshot"].resume({"condition": "Cloudy", "temp": 12})
+    print(result["output"])  # "London: 12°C"
+
+# Snapshot persistence
+state = b.start({"city": "Tokyo"})
+if state.get("suspended"):
+    bytes_ = state["snapshot"].dump()          # serialize to bytes
+    restored = BaldrickSnapshot.load(bytes_)   # load from bytes
+    result = restored.resume({"condition": "Clear", "temp": 26})
+```
+
+See [`examples/python/basic.py`](examples/python/basic.py) for the full example.
+</details>
+
+<details>
+<summary><strong>WebAssembly (browser)</strong></summary>
+
+```html
+<script type="module">
+import init, { Baldrick } from './baldrick-wasm/baldrick_wasm.js';
+
+await init();
+
+const b = new Baldrick(`
+    const items = [10, 20, 30];
+    items.map(x => x * 2).reduce((a, b) => a + b, 0)
+`);
+const result = b.run();
+console.log(result.output);  // 120
+</script>
+```
+
+See [`examples/wasm/index.html`](examples/wasm/index.html) for a full playground.
+</details>
+
+## What Baldrick can and cannot do
+
+### Can do
+
+- **Execute a useful subset of TypeScript** — variables, functions, classes, generators, async/await, closures, destructuring, spread/rest, optional chaining, nullish coalescing, template literals, try/catch
+- **Strip TypeScript types** at parse time via [oxc](https://oxc.rs) — no `tsc` needed
+- **Snapshot execution to bytes** and resume later, even in a different process or machine
+- **Call from Rust, Node.js, Python, or WebAssembly**
+- **Track and limit resources** — memory, allocations, stack depth, and wall-clock time
+- **30+ string methods, 25+ array methods**, plus Math, JSON, Object, and Promise builtins
+
+### Cannot do
 
 - Run arbitrary npm packages or the full Node.js standard library
 - Execute regular expressions (parsing supported, execution is a no-op)
 - Provide full `Promise` semantics (`.then()` chains, `Promise.race`, etc.)
-- Run code that requires `this` in non-class contexts (global `this` is blocked)
+- Run code that requires `this` in non-class contexts
 
 These are intentional constraints, not bugs. Baldrick targets one use case: **running code written by AI agents** inside a secure, embeddable sandbox.
 
+<details>
+<summary><strong>Full supported syntax table</strong></summary>
+
+| Feature | Status |
+|---|---|
+| Variables (`const`, `let`) | Supported |
+| Functions (declarations, arrows, expressions) | Supported |
+| Classes (`constructor`, methods, `extends`, `super`, `static`) | Supported |
+| Generators (`function*`, `yield`, `.next()`) | Supported |
+| Async/await | Supported |
+| Control flow (`if`, `for`, `while`, `do-while`, `switch`, `for-of`) | Supported |
+| Try/catch/finally, `throw` | Supported |
+| Closures with mutable capture | Supported |
+| Destructuring (object and array) | Supported |
+| Spread/rest operators | Supported |
+| Optional chaining (`?.`) | Supported |
+| Nullish coalescing (`??`) | Supported |
+| Template literals | Supported |
+| Type annotations, interfaces, type aliases | Stripped at parse time |
+| String methods (30+) | Supported |
+| Array methods (25+, including `map`, `filter`, `reduce`) | Supported |
+| Math, JSON, Object, Promise | Supported |
+| `import` / `require` / `eval` | Blocked (sandbox) |
+| Regular expressions | Parsed, not executed |
+| `var` declarations | Not supported (use `let`/`const`) |
+| Decorators | Not supported |
+| `Symbol`, `WeakMap`, `WeakSet` | Not supported |
+</details>
+
+## Alternatives
+
+| | Language completeness | Security | Startup | Snapshots | Setup |
+|---|---|---|---|---|---|
+| **Baldrick** | TypeScript subset | Language-level sandbox | **~2 µs** | Built-in, < 2 KB | `cargo add` / `npm install` |
+| Docker + Node.js | Full Node.js | Container isolation | ~200-500 ms | No | Container runtime |
+| V8 Isolates | Full JS/TS | Isolate boundary | ~5-50 ms | No | V8 (~20 MB) |
+| Deno Deploy | Full TS | Isolate + permissions | ~10-50 ms | No | Cloud service |
+| QuickJS | Full ES2023 | Process isolation | ~1-5 ms | No | C library |
+| WASI/Wasmer | Depends on guest | Wasm sandbox | ~1-10 ms | Possible | Wasm runtime |
+
+### Why not Docker?
+
+Docker provides strong isolation but adds hundreds of milliseconds of cold-start latency, requires a container runtime, and doesn't support snapshotting execution state mid-function. For AI agent loops that execute thousands of small code snippets, the overhead dominates.
+
+### Why not V8?
+
+V8 is the gold standard for JavaScript execution. But it brings ~20 MB of binary size, millisecond startup times, and a vast API surface that must be carefully restricted for sandboxing. If you need full ECMAScript compliance, use V8. If you need microsecond startup, byte-sized snapshots, and a security model where "blocked by default" is the foundation rather than an afterthought, use Baldrick.
+
 ## Security
 
-Running AI-generated code is inherently dangerous. Unlike Docker, which isolates at the OS level with containers, Baldrick isolates at the **language level** — there is no container, no process boundary, and no syscall filter between guest code and your application. This means the sandbox must be correct by construction, not by configuration.
+Running AI-generated code is inherently dangerous. Unlike Docker, which isolates at the OS level, Baldrick isolates at the **language level** — no container, no process boundary, no syscall filter. The sandbox must be correct by construction, not by configuration.
 
-### How the sandbox works
+### Deny-by-default sandbox
 
-Baldrick uses a **deny-by-default** architecture. Guest code runs inside a purpose-built bytecode VM that has no access to the host:
+Guest code runs inside a bytecode VM with no access to the host:
 
 | Blocked | How |
 |---|---|
-| Filesystem (`fs`, `path`) | No `std::fs` in the core crate. Not importable, not reachable. |
-| Network (`net`, `http`, `fetch`) | No `std::net` in the core crate. `fetch` is only available if you register it as an external function. |
-| Environment (`process.env`, `os`) | No `std::env` in the core crate. `process` is a parse-time error. |
-| Dynamic code execution (`eval`, `Function()`) | Blocked at parse time. There is no mechanism to compile new code at runtime inside the VM. |
-| Module system (`import`, `require`) | Blocked at parse time. No module resolution, no dynamic imports. |
-| Global escape hatches (`globalThis`, `global`) | Blocked at parse time. |
-| Prototype pollution | Not applicable — objects are plain `IndexMap` values, not prototype-chained. |
+| Filesystem (`fs`, `path`) | No `std::fs` in the core crate |
+| Network (`net`, `http`, `fetch`) | No `std::net` in the core crate |
+| Environment (`process.env`, `os`) | No `std::env` in the core crate |
+| `eval`, `Function()`, dynamic import | Blocked at parse time |
+| `import`, `require` | Blocked at parse time |
+| `globalThis`, `global` | Blocked at parse time |
+| Prototype pollution | Not applicable — objects are plain `IndexMap` values |
 
-### The only way out: external functions
-
-The **only** way guest code can interact with the outside world is through external functions that you explicitly register:
-
-```typescript
-const b = new Baldrick(`const data = await fetch(url); data`, {
-    inputs: ['url'],
-    externalFunctions: ['fetch'],  // Only 'fetch' is callable
-});
-```
-
-When guest code calls `fetch()`, the VM **suspends** and returns a snapshot. Your code runs the actual fetch, then resumes the VM with the result. The guest never touches the network — you do.
-
-Calling an unregistered function produces `BaldrickError::UnknownExternalFunction`, not a silent no-op.
+The **only** escape hatch is external functions that you explicitly register. When guest code calls one, the VM suspends and returns a snapshot — your code resolves the call, not the guest.
 
 ### Resource limits
-
-Every execution is bounded. Guest code cannot exhaust host resources:
 
 | Limit | Default | Configurable |
 |---|---|---|
@@ -85,21 +476,14 @@ Every execution is bounded. Guest code cannot exhaust host resources:
 | Call stack depth | 512 frames | `max_stack_depth` |
 | Heap allocations | 100,000 | `max_allocations` |
 
-Limits are checked during execution (not just at boundaries), so infinite loops, deep recursion, and allocation bombs are all caught.
+Limits are checked during execution, so infinite loops, deep recursion, and allocation bombs are all caught.
 
-### What this means in practice
+### Zero `unsafe` code
 
-- **No container runtime needed.** No Docker, no Firecracker, no gVisor.
-- **No V8 sandbox to configure.** No `--no-network`, no permission flags to forget.
-- **No syscall filter to maintain.** No seccomp profiles, no AppArmor policies.
-- **Microsecond startup.** No cold-start penalty means you can run thousands of snippets per second.
-- **Trade-off: limited language surface.** You get a safe subset of TypeScript, not the full language. This is the price of the security guarantee.
+The `baldrick-core` crate contains **zero `unsafe` blocks**. Memory safety is guaranteed by the Rust compiler. No FFI calls, no raw pointers, no transmutes.
 
-### No `unsafe` code
-
-The `baldrick-core` crate contains **zero `unsafe` blocks**. Memory safety is guaranteed by the Rust compiler. There are no FFI calls, no raw pointers, no transmutes.
-
-### Adversarial test suite
+<details>
+<summary><strong>Adversarial test suite — 65 tests across 19 attack categories</strong></summary>
 
 The sandbox is validated by **65 adversarial security tests** (`tests/security.rs`) that simulate real attack scenarios:
 
@@ -127,292 +511,10 @@ The sandbox is validated by **65 adversarial security tests** (`tests/security.r
 
 Run the security tests: `cargo test -p baldrick-core --test security`
 
-### Known limitations
-
-- `Object.freeze()` is not yet implemented — frozen objects can still be mutated. This is a correctness gap, not a sandbox escape.
-- User-defined `toString()`/`valueOf()` are not called during implicit type coercion. This is intentional (prevents injection) but differs from standard JavaScript behavior.
-
-## Performance
-
-All benchmarks run on the full pipeline: parse → compile → execute. No caching, no warm-up.
-
-| Benchmark | Median | What it does |
-|---|---|---|
-| Simple expression | **2.1 µs** | `1 + 2 * 3` |
-| Variable arithmetic | **2.8 µs** | `const x = 10; const y = 20; x * y + 5` |
-| String concatenation | **2.6 µs** | `"hello" + " " + "world"` |
-| Template literal | **2.9 µs** | `` `hello ${name}` `` |
-| Array creation | **2.4 µs** | `[1, 2, 3, 4, 5]` |
-| Object creation | **5.2 µs** | `{ name: "test", value: 42, nested: { a: 1 } }` |
-| Function call | **4.6 µs** | Define and call a function |
-| Loop (100 iterations) | **77.8 µs** | `for` loop with arithmetic |
-| Fibonacci (n=10) | **138.4 µs** | Recursive function, 177 calls |
-
-Snapshot size for typical agent code with external calls: **< 2 KB**.
-
-**Resource overhead per execution**: each VM instance allocates ~10 KB of stack/heap. Memory is bounded by the configurable `memory_limit_bytes` (default 32 MB) and `max_allocations` (default 100,000). There is no background thread, no GC, and no runtime — CPU usage is exactly proportional to the instructions executed.
-
-Run benchmarks: `cargo bench`
-
-## Installation
-
-### Quick install
-
-The install script auto-detects your project type, installs prerequisites, builds native bindings, and links them into your project:
-
-```bash
-# Auto-detect from project files (package.json, Cargo.toml, pyproject.toml)
-curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash
-
-# Or specify the language explicitly
-curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash -s -- --lang ts
-curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash -s -- --lang python
-curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash -s -- --lang rust
-curl -fsSL https://raw.githubusercontent.com/TheUncharted/baldrick/master/install.sh | bash -s -- --lang wasm
-```
-
-The script will install the Rust toolchain if needed, clone Baldrick to `~/.baldrick`, and build the native bindings for your platform.
-
-> **Note:** Prebuilt binaries for npm/PyPI are not published yet. The install script builds from source (~30s). This will change once CI is set up.
-
-### Manual install
-
-### Rust
-
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-baldrick-core = { git = "https://github.com/TheUncharted/baldrick.git" }
-```
-
-### JavaScript / TypeScript (Node.js)
-
-The JS bindings use [napi-rs](https://napi.rs) — a native addon compiled from Rust. You need Rust installed to build from source:
-
-```bash
-# Prerequisites: Rust toolchain (https://rustup.rs)
-git clone https://github.com/TheUncharted/baldrick.git
-cd baldrick/crates/baldrick-js
-npm install
-npm run build   # or: cargo build -p baldrick-js --release
-```
-
-This produces a native `.node` binary. Copy `baldrick.*.node` and `index.js`/`index.d.ts` into your project, or link locally:
-
-```bash
-npm link        # in baldrick-js/
-npm link @baldrick/core  # in your project
-```
-
-Once published to npm (coming soon), this will be just:
-
-```bash
-npm install @baldrick/core    # npm
-yarn add @baldrick/core       # yarn
-pnpm add @baldrick/core       # pnpm
-bun add @baldrick/core        # bun
-```
-
-### Python
-
-The Python bindings use [PyO3](https://pyo3.rs) + [maturin](https://github.com/PyO3/maturin):
-
-```bash
-# Prerequisites: Rust toolchain + maturin
-pip install maturin
-
-git clone https://github.com/TheUncharted/baldrick.git
-cd baldrick/crates/baldrick-py
-maturin develop --release   # builds and installs into current venv
-```
-
-Once published to PyPI (coming soon), this will be just:
-
-```bash
-pip install baldrick
-```
-
-### WebAssembly
-
-```bash
-# Prerequisites: wasm-pack (https://rustwasm.github.io/wasm-pack/)
-git clone https://github.com/TheUncharted/baldrick.git
-cd baldrick/crates/baldrick-wasm
-wasm-pack build --target web
-```
-
-This outputs a `pkg/` directory you can import in any browser or bundler.
-
-## Usage
-
-### Rust
-
-```rust
-use baldrick_core::{BaldrickRun, Value, ResourceLimits};
-use baldrick_core::vm::VmState;
-
-// Simple execution
-let runner = BaldrickRun::new(
-    "1 + 2 * 3".to_string(),
-    vec![],
-    vec![],
-    ResourceLimits::default(),
-)?;
-let result = runner.run_simple()?;
-assert_eq!(result, Value::Int(7));
-
-// With inputs and external functions (snapshot/resume)
-let runner = BaldrickRun::new(
-    r#"
-        const response = await fetch(url);
-        response + " processed"
-    "#.to_string(),
-    vec!["url".to_string()],
-    vec!["fetch".to_string()],
-    ResourceLimits::default(),
-)?;
-
-// Start execution — suspends at fetch()
-let state = runner.start(vec![
-    ("url".to_string(), Value::String("https://api.example.com".into())),
-])?;
-
-match state {
-    VmState::Suspended { function_name, args, snapshot } => {
-        assert_eq!(function_name, "fetch");
-
-        // Serialize snapshot to bytes (store in DB, send over network, etc.)
-        let bytes = snapshot.dump()?;
-
-        // Later: restore and resume with the external function's result
-        let restored = baldrick_core::BaldrickSnapshot::load(&bytes)?;
-        let final_state = restored.resume(Value::String("response data".into()))?;
-
-        match final_state {
-            VmState::Complete(value) => {
-                assert_eq!(value, Value::String("response data processed".into()));
-            }
-            _ => unreachable!(),
-        }
-    }
-    VmState::Complete(value) => println!("Result: {}", value),
-}
-```
-
-### JavaScript / TypeScript
-
-```typescript
-import { Baldrick, BaldrickSnapshotHandle } from '@baldrick/core';
-
-// Create a sandbox with inputs and external functions
-const b = new Baldrick(`
-    const data = await fetch(url);
-    JSON.parse(data)
-`, {
-    inputs: ['url'],
-    externalFunctions: ['fetch'],
-    timeLimitMs: 5000,
-});
-
-// Simple run (no external calls needed)
-const result = b.run({ url: '"hello"' });
-if (result.completed) {
-    console.log(result.output);  // "hello"
-}
-
-// Snapshot/resume flow (for external function calls)
-const state = b.start({ url: '"https://api.example.com"' });
-if (!state.completed) {
-    console.log(state.functionName);  // "fetch"
-    console.log(state.args);          // ["https://api.example.com"]
-
-    // You resolve the external call, then resume the VM
-    const snapshot = BaldrickSnapshotHandle.load(state.snapshot);
-    const final = snapshot.resume('{"status": "ok"}');
-    console.log(final.output);  // { status: "ok" }
-}
-```
-
-### Python
-
-```python
-from baldrick import Baldrick, BaldrickSnapshot
-
-b = Baldrick("""
-    const result = await fetch(url);
-    result + " done"
-""", external_functions=["fetch"])
-
-state = b.start({"url": "https://api.example.com"})
-
-if state["suspended"]:
-    print(state["function_name"])  # "fetch"
-    print(state["args"])           # ["https://api.example.com"]
-
-    # You resolve the external call, then resume
-    snapshot = state["snapshot"]
-    final = snapshot.resume("response data")
-    print(final["output"])  # "response data done"
-```
-
-### WebAssembly
-
-```javascript
-import init, { Baldrick } from '@baldrick/wasm';
-
-await init();
-
-const b = new Baldrick('1 + 2 * 3');
-const result = b.run();
-console.log(result.output);  // 7
-```
-
-## Supported TypeScript Subset
-
-| Feature | Status |
-|---|---|
-| Variables (`const`, `let`) | Supported |
-| Functions (declarations, arrows, expressions) | Supported |
-| Classes (`constructor`, methods, `extends`, `super`, `static`) | Supported |
-| Generators (`function*`, `yield`, `.next()`) | Supported |
-| Async/await | Supported |
-| Control flow (`if`, `for`, `while`, `do-while`, `switch`, `for-of`) | Supported |
-| Try/catch/finally, `throw` | Supported |
-| Closures with mutable capture | Supported |
-| Destructuring (object and array) | Supported |
-| Spread/rest operators | Supported |
-| Optional chaining (`?.`) | Supported |
-| Nullish coalescing (`??`) | Supported |
-| Template literals | Supported |
-| Type annotations, interfaces, type aliases | Stripped at parse time |
-| String methods (30+) | Supported |
-| Array methods (25+, including `map`, `filter`, `reduce`) | Supported |
-| Math, JSON, Object, Promise | Supported |
-| `import` / `require` / `eval` | Blocked (sandbox) |
-| Regular expressions | Parsed, not executed |
-| `var` declarations | Not supported (use `let`/`const`) |
-| Decorators | Not supported |
-| `Symbol`, `WeakMap`, `WeakSet` | Not supported |
-
-## Alternatives
-
-| | Language completeness | Security | Startup latency | Snapshotting | Setup complexity |
-|---|---|---|---|---|---|
-| **Baldrick** | TypeScript subset | Sandbox at language level | **~2 µs** | Built-in, < 2 KB | `cargo add` / `npm install` |
-| Docker + Node.js | Full Node.js | Container isolation | ~200-500 ms | Not built-in | Container runtime required |
-| V8 Isolates | Full JS/TS | Isolate boundary | ~5-50 ms | Not built-in | V8 linkage (~20 MB) |
-| Deno Deploy | Full TS | Isolate + permissions | ~10-50 ms | Not built-in | Cloud service |
-| QuickJS | Full ES2023 | Process isolation | ~1-5 ms | Not built-in | C library |
-| WASI/Wasmer | Depends on guest | Wasm sandbox | ~1-10 ms | Possible | Wasm runtime |
-
-### Why not just use V8?
-
-V8 is the gold standard for JavaScript execution. But it brings ~20 MB of binary size, millisecond startup times, and a vast API surface that must be carefully restricted for sandboxing. If you need full ECMAScript compliance, use V8. If you need microsecond startup, byte-sized snapshots, and a security model where "blocked by default" is the foundation rather than an afterthought, use Baldrick.
-
-### Why not Docker?
-
-Docker provides strong isolation but adds hundreds of milliseconds of cold-start latency, requires a container runtime, and doesn't support snapshotting execution state mid-function. For AI agent loops that execute thousands of small code snippets, the overhead dominates.
+**Known limitations:**
+- `Object.freeze()` is not yet implemented — frozen objects can still be mutated (correctness gap, not a sandbox escape)
+- User-defined `toString()`/`valueOf()` are not called during implicit type coercion (intentional — prevents injection)
+</details>
 
 ## Architecture
 
