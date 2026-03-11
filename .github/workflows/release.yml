@@ -7,6 +7,11 @@ on:
         description: "Dry run (build only, no publish)"
         type: boolean
         default: true
+  workflow_call:
+    inputs:
+      dry_run:
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -207,8 +212,11 @@ jobs:
     needs: [publish-crate, publish-npm, publish-pypi]
     steps:
       - uses: actions/checkout@v6
+      - name: Get version from Cargo.toml
+        id: version
+        run: echo "version=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')" >> "$GITHUB_OUTPUT"
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          tag_name: v1.0.0
+          tag_name: v${{ steps.version.outputs.version }}

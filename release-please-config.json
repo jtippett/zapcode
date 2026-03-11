@@ -8,6 +8,7 @@
       "bump-patch-for-minor-pre-major": true,
       "extra-files": [
         "crates/zapcode-js/package.json",
+        "crates/zapcode-py/pyproject.toml",
         "packages/zapcode-ai/package.json",
         "packages/zapcode-ai-python/pyproject.toml"
       ]
