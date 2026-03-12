@@ -857,6 +857,19 @@ pub fn is_promise(val: &Value) -> bool {
     }
 }
 
+/// Create a resolved promise wrapping the given value.
+pub fn make_resolved_promise(val: Value) -> Value {
+    // If the value is already a promise, return it as-is (thenable unwrapping)
+    if is_promise(&val) {
+        return val;
+    }
+    let mut obj = IndexMap::new();
+    obj.insert(Arc::from("__promise__"), Value::Bool(true));
+    obj.insert(Arc::from("status"), Value::String(Arc::from("resolved")));
+    obj.insert(Arc::from("value"), val);
+    Value::Object(obj)
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 fn arg_num(args: &[Value], idx: usize) -> f64 {

@@ -94,7 +94,7 @@ def main():
         ]
     }
 
-    max_steps = 5
+    max_steps = 10
     steps = 0
     total_tokens = 0
 
