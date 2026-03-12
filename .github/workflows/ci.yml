@@ -63,17 +63,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.npm
-          key: npm-${{ runner.os }}-${{ hashFiles('crates/zapcode-js/package.json', 'examples/typescript/package.json') }}
+          key: npm-${{ runner.os }}-${{ hashFiles('crates/zapcode-js/package.json', 'examples/typescript/basic/package.json') }}
       - name: Build JS bindings
         working-directory: crates/zapcode-js
         run: |
           npm install
           npx napi build --release --platform --js index.js --dts index.d.ts
       - name: Run basic example
-        working-directory: examples/typescript
+        working-directory: examples/typescript/basic
         run: |
           npm install
-          npx tsx basic.ts
+          npx tsx main.ts
 
   # ── Python bindings — build + e2e ───────────────────────────────────
   e2e-python:
@@ -101,10 +101,10 @@ jobs:
           source ${{ github.workspace }}/.venv/bin/activate
           maturin develop --release
       - name: Run basic example
-        working-directory: examples/python
+        working-directory: examples/python/basic
         run: |
           source ${{ github.workspace }}/.venv/bin/activate
-          python basic.py
+          python main.py
 
   # ── WASM — build + smoke test ───────────────────────────────────────
   e2e-wasm:
