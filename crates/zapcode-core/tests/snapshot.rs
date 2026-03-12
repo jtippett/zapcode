@@ -384,9 +384,9 @@ fn test_snapshot_multi_await_with_let_and_console() {
         VmState::Complete(v) => {
             // Should have all fields
             if let Value::Object(map) = &v {
-                assert!(map.contains_key("tokyo".into()));
-                assert!(map.contains_key("paris".into()));
-                assert!(map.contains_key("flights".into()));
+                assert!(map.contains_key("tokyo"));
+                assert!(map.contains_key("paris"));
+                assert!(map.contains_key("flights"));
             } else {
                 panic!("expected object result, got {:?}", v);
             }
