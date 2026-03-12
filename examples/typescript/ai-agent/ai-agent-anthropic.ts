@@ -12,10 +12,10 @@
  * 4. Your app resolves the tool call, then resumes Zapcode with the result
  *
  * Prerequisites:
- *   npm install @anthropic-ai/sdk @unchartedfr/zapcode
+ *   npm install
  *   export ANTHROPIC_API_KEY=sk-...
  *
- * Run with: npx tsx ai-agent-anthropic.ts
+ * Run with: npm run agent:anthropic
  */
 
 import Anthropic from "@anthropic-ai/sdk";

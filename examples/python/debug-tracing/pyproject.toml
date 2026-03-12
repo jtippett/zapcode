@@ -1,0 +1,9 @@
+[project]
+name = "zapcode-debug-tracing-example"
+version = "0.0.1"
+description = "Zapcode debug & tracing example (Python)"
+requires-python = ">=3.10"
+dependencies = [
+    "zapcode-ai",
+    "boto3",
+]

@@ -1,14 +1,10 @@
 [project]
-name = "zapcode-examples"
+name = "zapcode-ai-agent-example"
 version = "0.0.1"
-description = "Example usage of Zapcode with AI agents"
+description = "Zapcode AI agent examples (Python)"
 requires-python = ">=3.10"
 dependencies = [
     "zapcode",
     "zapcode-ai",
-]
-
-[project.optional-dependencies]
-ai = [
     "anthropic>=0.39.0",
 ]
