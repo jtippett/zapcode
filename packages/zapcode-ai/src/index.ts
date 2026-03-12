@@ -456,7 +456,7 @@ export function zapcode(options: ZapcodeAIOptions): ZapcodeAIResult {
 
   const system = buildSystemPrompt(toolDefs, userSystem);
 
-  const execOptions = { memoryLimitMb, timeLimitMs, debug: false, autoFix };
+  const execOptions = { memoryLimitMb, timeLimitMs, debug, autoFix };
   const tracing = debug || autoFix;
 
   // Session-level trace collects all attempts

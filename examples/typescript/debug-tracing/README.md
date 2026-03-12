@@ -8,6 +8,10 @@ Demonstrates Zapcode's debug mode, auto-fix error recovery, and execution tracin
 - **`autoFix: true`** — When the LLM generates code that fails, the error is returned as a tool result instead of throwing, letting the LLM self-correct on the next step
 - **`printTrace()`** — Displays the full execution trace tree (parse -> compile -> execute) with timing
 
+## Prerequisites
+
+AWS credentials must be configured (env vars, `~/.aws/credentials`, or IAM role) with access to the Bedrock model specified by `MODEL_ID` in your target `AWS_REGION`.
+
 ## Setup
 
 ```bash
@@ -26,7 +30,7 @@ MODEL_ID=anthropic.claude-sonnet-4-20250514 npm start
 
 ## Example output
 
-```
+```text
 Model: global.amazon.nova-2-lite-v1:0 | Region: eu-west-1
 Debug: ON | AutoFix: ON
 

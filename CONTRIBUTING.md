@@ -60,8 +60,8 @@ Key rules:
 - Write tests before considering a feature done
 - Core tests: `cargo test -p zapcode-core`
 - Security tests: `cargo test -p zapcode-core --test security`
-- E2E JS: build bindings then run `examples/typescript/basic/main.ts`
-- E2E Python: build bindings then run `examples/python/basic/main.py`
+- E2E JS: `cd crates/zapcode-js && npm install && npx napi build --release --platform --js index.js --dts index.d.ts && cd ../../examples/typescript/basic && npm install && npx tsx main.ts`
+- E2E Python: `cd crates/zapcode-py && maturin develop --release && cd ../../examples/python/basic && python main.py`
 
 ## Reporting issues
 

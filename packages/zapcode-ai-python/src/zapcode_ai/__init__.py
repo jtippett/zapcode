@@ -182,7 +182,7 @@ def _end_span(span: TraceSpan, status: str | None = None) -> TraceSpan:
 def _print_trace(span: TraceSpan, indent: int = 0) -> None:
     prefix = "" if indent == 0 else "│ " * (indent - 1) + "├─ "
     icon = "✗" if span.status == "error" else "✓"
-    duration = f"<1ms" if span.duration_ms < 1 else f"{span.duration_ms:.0f}ms"
+    duration = "<1ms" if span.duration_ms < 1 else f"{span.duration_ms:.0f}ms"
     attrs = " ".join(
         f"{k}={str(v)[:80]}" for k, v in span.attributes.items()
         if not k.startswith("zapcode.code")  # don't dump full code in trace

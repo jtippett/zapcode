@@ -90,7 +90,7 @@ def log_execution(result):
 
 def main():
     print(f"Model: {MODEL_ID} | Region: {REGION}")
-    print(f"Debug: ON | AutoFix: ON")
+    print("Debug: ON | AutoFix: ON")
 
     t0 = time.perf_counter()
 

@@ -2,7 +2,7 @@
 
 Examples organized by language, then by topic.
 
-```
+```text
 examples/
 ├── typescript/
 │   ├── basic/            Simple expressions, inputs, snapshot/resume, classes
@@ -26,14 +26,14 @@ Each example has its own `README.md` with setup and run instructions. Pick a lan
 
 ```bash
 # TypeScript — basic usage (no API key needed)
-cd typescript/basic && npm install && npm start
+cd examples/typescript/basic && npm install && npm start
 
 # Python — basic usage (no API key needed)
-cd python/basic && pip install zapcode && python main.py
+cd examples/python/basic && pip install zapcode && python main.py
 
 # Rust — basic usage
-cd rust/basic && cargo run --example basic
+cd examples/rust/basic && cargo run --example basic
 
-# WASM — open in browser
-open wasm/basic/index.html
+# WASM — open in browser (macOS: open, Linux: xdg-open, Windows: start)
+xdg-open examples/wasm/basic/index.html
 ```
