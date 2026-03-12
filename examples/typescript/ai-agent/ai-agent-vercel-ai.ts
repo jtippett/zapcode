@@ -1,22 +1,25 @@
 /**
- * AI Agent using @unchartedfr/zapcode-ai — the high-level wrapper.
+ * AI Agent with Zapcode — using Vercel AI SDK.
  *
- * This is the recommended way to use Zapcode with AI models.
+ * This example shows the clean integration via @unchartedfr/zapcode-ai.
  * One call to `zapcode()` gives you `{ system, tools }` that plug
- * directly into Vercel AI SDK's `generateText` / `streamText`.
+ * directly into `streamText` / `generateText` — just like CodeMode.
+ *
+ * Works with any AI SDK provider: Anthropic, OpenAI, Google, etc.
  *
  * Prerequisites:
- *   npm install @unchartedfr/zapcode-ai ai @ai-sdk/anthropic
+ *   npm install
  *   export ANTHROPIC_API_KEY=sk-...
  *
- * Run with: npx tsx ai-agent-zapcode-ai.ts
+ * Run with: npm run agent:vercel
  */
 
 import { zapcode } from "@unchartedfr/zapcode-ai";
-import { generateText } from "ai";
+import { generateText, streamText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 
-// Define your tools — just description, params, and execute
+// --- One call to set up everything ---
+
 const { system, tools } = zapcode({
   system: "You are a helpful travel assistant.",
   tools: {
@@ -30,25 +33,9 @@ const { system, tools } = zapcode({
         const data: Record<string, unknown> = {
           London: { condition: "Overcast", temp: 12, humidity: 80 },
           Tokyo: { condition: "Clear", temp: 26, humidity: 55 },
-          "New York": { condition: "Rain", temp: 14, humidity: 88 },
           Paris: { condition: "Sunny", temp: 22, humidity: 45 },
         };
         return data[city as string] ?? { condition: "Unknown", temp: 0 };
-      },
-    },
-    searchFlights: {
-      description: "Search flights between two cities",
-      parameters: {
-        from: { type: "string", description: "Departure city" },
-        to: { type: "string", description: "Arrival city" },
-        date: { type: "string", description: "Date (YYYY-MM-DD)" },
-      },
-      execute: async ({ from, to, date }) => {
-        // In production, call a flight search API
-        return [
-          { airline: "BA", flight: "BA123", price: 450, departure: "08:00" },
-          { airline: "AF", flight: "AF456", price: 380, departure: "14:30" },
-        ];
       },
     },
     sendEmail: {
@@ -66,23 +53,27 @@ const { system, tools } = zapcode({
   },
 });
 
-// That's it! Now use with any AI SDK model.
+// --- That's it. Now use with generateText or streamText. ---
 
 async function main() {
-  console.log("=== Simple weather query ===\n");
+  // Example 1: generateText
+  console.log("=== generateText ===\n");
 
-  const result1 = await generateText({
+  const result = await generateText({
     model: anthropic("claude-sonnet-4-20250514"),
     system,
     tools,
     maxSteps: 5,
-    messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
+    messages: [
+      { role: "user", content: "What's the weather in Tokyo?" },
+    ],
   });
-  console.log("Answer:", result1.text);
+  console.log("Answer:", result.text);
 
-  console.log("\n=== Complex multi-tool query ===\n");
+  // Example 2: streamText
+  console.log("\n=== streamText ===\n");
 
-  const result2 = await generateText({
+  const stream = streamText({
     model: anthropic("claude-sonnet-4-20250514"),
     system,
     tools,
@@ -91,13 +82,15 @@ async function main() {
       {
         role: "user",
         content:
-          "Compare the weather in London, Tokyo, and Paris. " +
-          "Then find flights from the coldest city to the warmest for 2026-04-15. " +
-          "Email the results to travel@example.com.",
+          "Compare the weather in London and Paris, then email a summary to travel@example.com",
       },
     ],
   });
-  console.log("Answer:", result2.text);
+
+  for await (const chunk of stream.textStream) {
+    process.stdout.write(chunk);
+  }
+  console.log();
 }
 
 main().catch(console.error);

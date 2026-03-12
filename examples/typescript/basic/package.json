@@ -1,0 +1,15 @@
+{
+  "name": "zapcode-basic-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx tsx main.ts"
+  },
+  "dependencies": {
+    "@unchartedfr/zapcode": "file:../../../crates/zapcode-js"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

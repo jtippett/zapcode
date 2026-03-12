@@ -1,0 +1,21 @@
+{
+  "name": "zapcode-ai-agent-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "agent": "npx tsx ai-agent-zapcode-ai.ts",
+    "agent:anthropic": "npx tsx ai-agent-anthropic.ts",
+    "agent:vercel": "npx tsx ai-agent-vercel-ai.ts"
+  },
+  "dependencies": {
+    "@unchartedfr/zapcode": "file:../../../crates/zapcode-js",
+    "@unchartedfr/zapcode-ai": "file:../../../packages/zapcode-ai",
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@ai-sdk/anthropic": "^1.1.0",
+    "ai": "^4.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -9,5 +9,5 @@ name = "basic"
 path = "basic.rs"
 
 [dependencies]
-zapcode-core = { path = "../../crates/zapcode-core" }
+zapcode-core = { path = "../../../crates/zapcode-core" }
 indexmap = "2"

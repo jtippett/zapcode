@@ -1,8 +1,8 @@
 """
 Basic Zapcode example — execute TypeScript from Python.
 
-Prerequisites: build zapcode-py (see README)
-Run with: python examples/python/basic.py
+Prerequisites: pip install zapcode
+Run with: python main.py
 """
 
 from zapcode import Zapcode, ZapcodeSnapshot

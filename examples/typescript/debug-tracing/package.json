@@ -1,0 +1,19 @@
+{
+  "name": "zapcode-debug-tracing-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx tsx main.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/amazon-bedrock": "^2.0.0",
+    "@aws-sdk/credential-providers": "^3.0.0",
+    "@unchartedfr/zapcode": "file:../../../crates/zapcode-js",
+    "@unchartedfr/zapcode-ai": "file:../../../packages/zapcode-ai",
+    "ai": "^4.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,8 +1,8 @@
 /**
  * Basic Zapcode example — execute TypeScript from Node.js.
  *
- * Prerequisites: build zapcode-js (see README)
- * Run with: npx ts-node examples/typescript/basic.ts
+ * Prerequisites: npm install
+ * Run with: npx tsx main.ts
  */
 
 import { Zapcode, ZapcodeSnapshotHandle } from "@unchartedfr/zapcode";
