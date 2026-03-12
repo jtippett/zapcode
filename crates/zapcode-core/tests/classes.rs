@@ -178,8 +178,8 @@ fn test_class_no_constructor() {
 
 #[test]
 fn test_class_method_chaining() {
-    // Method chaining works by using the return value (this is a value-based VM,
-    // so mutations don't propagate back to the original variable automatically)
+    // Method chaining works by using the return value. Mutations to `this`
+    // inside methods are also written back to the receiver variable.
     let result = eval_ts(
         r#"
         class Builder {
@@ -299,6 +299,101 @@ fn test_multiple_instances() {
     )
     .unwrap();
     assert_eq!(result, Value::Int(30));
+}
+
+#[test]
+fn test_method_this_mutation_persists() {
+    // Regression test: mutations to `this` properties inside method calls must
+    // persist back to the original object variable. Previously, the receiver was
+    // cloned and mutations were lost.
+    let result = eval_ts(
+        r#"
+        class Counter {
+            count: number;
+            constructor(start: number) {
+                this.count = start;
+            }
+            increment() {
+                this.count += 1;
+                return this.count;
+            }
+        }
+        const c = new Counter(10);
+        [c.increment(), c.increment(), c.increment()]
+    "#,
+    )
+    .unwrap();
+    match result {
+        Value::Array(arr) => {
+            assert_eq!(arr.len(), 3);
+            assert_eq!(arr[0], Value::Int(11));
+            assert_eq!(arr[1], Value::Int(12));
+            assert_eq!(arr[2], Value::Int(13));
+        }
+        other => panic!("expected array, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_method_this_mutation_persists_local() {
+    // Same as above but ensuring mutations work in a function scope (local variables).
+    let result = eval_ts(
+        r#"
+        class Counter {
+            count: number;
+            constructor(start: number) {
+                this.count = start;
+            }
+            increment() {
+                this.count += 1;
+                return this.count;
+            }
+        }
+        function test() {
+            const c = new Counter(0);
+            c.increment();
+            c.increment();
+            return c.count;
+        }
+        test()
+    "#,
+    )
+    .unwrap();
+    assert_eq!(result, Value::Int(2));
+}
+
+#[test]
+fn test_method_this_mutation_multiple_instances() {
+    // Ensure mutations to one instance don't affect another.
+    let result = eval_ts(
+        r#"
+        class Counter {
+            count: number;
+            constructor(start: number) {
+                this.count = start;
+            }
+            increment() {
+                this.count += 1;
+                return this.count;
+            }
+        }
+        const a = new Counter(0);
+        const b = new Counter(100);
+        a.increment();
+        a.increment();
+        b.increment();
+        [a.count, b.count]
+    "#,
+    )
+    .unwrap();
+    match result {
+        Value::Array(arr) => {
+            assert_eq!(arr.len(), 2);
+            assert_eq!(arr[0], Value::Int(2));
+            assert_eq!(arr[1], Value::Int(101));
+        }
+        other => panic!("expected array, got {:?}", other),
+    }
 }
 
 #[test]

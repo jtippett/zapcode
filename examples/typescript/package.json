@@ -11,8 +11,8 @@
     "agent:vercel": "tsx ai-agent-vercel-ai.ts"
   },
   "dependencies": {
-    "@unchartedfr/zapcode": "file:../../crates/zapcode-js",
-    "@unchartedfr/zapcode-ai": "file:../../packages/zapcode-ai"
+    "@unchartedfr/zapcode": "latest",
+    "@unchartedfr/zapcode-ai": "latest"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

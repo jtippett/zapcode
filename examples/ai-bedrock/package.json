@@ -6,10 +6,11 @@
     "start": "npx tsx main.ts"
   },
   "dependencies": {
-    "@unchartedfr/zapcode-ai": "^1.0.0",
-    "ai": "^4.0.0",
     "@ai-sdk/amazon-bedrock": "^2.0.0",
-    "@aws-sdk/credential-providers": "^3.0.0"
+    "@aws-sdk/credential-providers": "^3.0.0",
+    "@unchartedfr/zapcode": "latest",
+    "@unchartedfr/zapcode-ai": "latest",
+    "ai": "^4.0.0"
   },
   "devDependencies": {
     "tsx": "^4.0.0",

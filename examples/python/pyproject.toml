@@ -5,19 +5,10 @@ description = "Example usage of Zapcode with AI agents"
 requires-python = ">=3.10"
 dependencies = [
     "zapcode",
+    "zapcode-ai",
 ]
 
 [project.optional-dependencies]
 ai = [
     "anthropic>=0.39.0",
 ]
-
-[tool.uv]
-dev-dependencies = []
-
-[tool.uv.sources]
-zapcode = { path = "../../crates/zapcode-py" }
-
-[build-system]
-requires = ["maturin>=1.0,<2.0"]
-build-backend = "maturin"
