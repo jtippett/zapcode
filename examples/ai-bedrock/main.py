@@ -137,7 +137,7 @@ def main():
                         })
 
             messages.append({"role": "user", "content": tool_results})
-        else:
+        elif stop_reason in ("end_turn", "stop_sequence"):
             text = ""
             for block in response["output"]["message"]["content"]:
                 if "text" in block:
@@ -146,11 +146,15 @@ def main():
             total_ms = (time.perf_counter() - t0) * 1000
 
             print(f"Answer: {text}")
-            print(f"\n--- Timing ---")
+            print("\n--- Timing ---")
             print(f"Total (LLM + Zapcode): {total_ms:.0f}ms")
             print(f"Steps: {steps}")
             print(f"Tokens: {total_tokens}")
             return
+        else:
+            raise RuntimeError(
+                f"Bedrock Converse returned unexpected stop reason: {stop_reason}"
+            )
 
     raise RuntimeError(
         f"Model did not produce a final answer within {max_steps} steps"
