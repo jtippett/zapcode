@@ -166,23 +166,18 @@ jobs:
           - os: ubuntu-latest
             target: x86_64
             manylinux: auto
-            interpreter: "3.10 3.11 3.12 3.13"
           - os: ubuntu-latest
             target: aarch64
             manylinux: auto
-            interpreter: "3.10 3.11 3.12 3.13"
           - os: macos-latest
             target: x86_64
             manylinux: auto
-            interpreter: "3.10 3.11 3.12 3.13"
           - os: macos-latest
             target: aarch64
             manylinux: auto
-            interpreter: "3.10 3.11 3.12 3.13"
           - os: windows-latest
             target: x64
             manylinux: auto
-            interpreter: "3.10 3.11 3.12 3.13"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -195,8 +190,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
-          args: --release --out dist -m crates/zapcode-py/Cargo.toml
-          interpreter: ${{ matrix.interpreter }}
+          args: --release --out dist -m crates/zapcode-py/Cargo.toml -i python3.10 -i python3.11 -i python3.12 -i python3.13
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
