@@ -274,19 +274,26 @@ impl<'a> AstLowerer<'a> {
                     s.span.start, s.span.end
                 )))
             }
-            other => {
-                // Extract span from the unhandled statement for a useful error message
-                let span = match other {
-                    ast::Statement::WithStatement(s) => s.span,
-                    ast::Statement::TSModuleDeclaration(s) => s.span,
-                    ast::Statement::TSTypeAliasDeclaration(s) => s.span,
-                    ast::Statement::TSInterfaceDeclaration(s) => s.span,
-                    ast::Statement::TSImportEqualsDeclaration(s) => s.span,
-                    ast::Statement::TSExportAssignment(s) => s.span,
-                    ast::Statement::TSNamespaceExportDeclaration(s) => s.span,
-                    _ => oxc_span::Span::new(0, 0),
-                };
-                Err(self.unsupported(span, "unsupported statement type"))
+            ast::Statement::DebuggerStatement(s) => {
+                Err(self.unsupported(s.span, "unsupported statement type"))
+            }
+            ast::Statement::WithStatement(s) => {
+                Err(self.unsupported(s.span, "unsupported statement type"))
+            }
+            ast::Statement::TSModuleDeclaration(s) => {
+                Err(self.unsupported(s.span, "unsupported statement type"))
+            }
+            ast::Statement::TSGlobalDeclaration(s) => {
+                Err(self.unsupported(s.span, "unsupported statement type"))
+            }
+            ast::Statement::TSImportEqualsDeclaration(s) => {
+                Err(self.unsupported(s.span, "unsupported statement type"))
+            }
+            ast::Statement::TSExportAssignment(s) => {
+                Err(self.unsupported(s.span, "unsupported statement type"))
+            }
+            ast::Statement::TSNamespaceExportDeclaration(s) => {
+                Err(self.unsupported(s.span, "unsupported statement type"))
             }
         }
     }
