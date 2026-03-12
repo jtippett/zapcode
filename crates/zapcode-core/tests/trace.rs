@@ -1,6 +1,4 @@
-use zapcode_core::{
-    ResourceLimits, TraceSpan, TraceStatus, Value, VmState, ZapcodeRun,
-};
+use zapcode_core::{ResourceLimits, TraceSpan, TraceStatus, Value, VmState, ZapcodeRun};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,7 +55,12 @@ fn trace_all_children_have_ok_status_on_success() {
 
     assert_eq!(root.status, TraceStatus::Ok);
     for child in &root.children {
-        assert_eq!(child.status, TraceStatus::Ok, "child '{}' should be Ok", child.name);
+        assert_eq!(
+            child.status,
+            TraceStatus::Ok,
+            "child '{}' should be Ok",
+            child.name
+        );
     }
 }
 
@@ -96,8 +99,13 @@ fn trace_root_duration_gte_children_sum() {
 
 #[test]
 fn trace_parse_error_has_error_status() {
-    let runner =
-        ZapcodeRun::new("{{{{".to_string(), vec![], vec![], ResourceLimits::default()).unwrap();
+    let runner = ZapcodeRun::new(
+        "{{{{".to_string(),
+        vec![],
+        vec![],
+        ResourceLimits::default(),
+    )
+    .unwrap();
     let err = runner.run(vec![]);
 
     // Parse errors return Err, so we can't inspect the trace from RunResult.
@@ -139,7 +147,10 @@ fn trace_on_suspension_has_execute_with_suspended_attrs() {
         .attributes
         .iter()
         .find(|(k, _)| k == "zapcode.suspended_on");
-    assert!(suspended_attr.is_some(), "execute span should have zapcode.suspended_on attribute");
+    assert!(
+        suspended_attr.is_some(),
+        "execute span should have zapcode.suspended_on attribute"
+    );
     assert_eq!(suspended_attr.unwrap().1, "fetchData");
 }
 
@@ -174,7 +185,10 @@ fn trace_pretty_print_contains_span_names() {
     let result = run_code("1 + 1");
     let output = result.trace.to_string_pretty();
 
-    assert!(output.contains("zapcode.run"), "should contain root span name");
+    assert!(
+        output.contains("zapcode.run"),
+        "should contain root span name"
+    );
     assert!(output.contains("parse"), "should contain parse span");
     assert!(output.contains("compile"), "should contain compile span");
     assert!(output.contains("execute"), "should contain execute span");

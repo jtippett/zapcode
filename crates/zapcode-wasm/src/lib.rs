@@ -212,12 +212,24 @@ fn trace_span_to_js(span: &CoreTraceSpan) -> Result<JsValue, JsError> {
     let obj = Object::new();
     Reflect::set(&obj, &"name".into(), &JsValue::from_str(&span.name))
         .map_err(|_| JsError::new("failed to set trace field"))?;
-    Reflect::set(&obj, &"startTimeMs".into(), &JsValue::from(span.start_time_ms as f64))
-        .map_err(|_| JsError::new("failed to set trace field"))?;
-    Reflect::set(&obj, &"endTimeMs".into(), &JsValue::from(span.end_time_ms as f64))
-        .map_err(|_| JsError::new("failed to set trace field"))?;
-    Reflect::set(&obj, &"durationUs".into(), &JsValue::from(span.duration_us as f64))
-        .map_err(|_| JsError::new("failed to set trace field"))?;
+    Reflect::set(
+        &obj,
+        &"startTimeMs".into(),
+        &JsValue::from(span.start_time_ms as f64),
+    )
+    .map_err(|_| JsError::new("failed to set trace field"))?;
+    Reflect::set(
+        &obj,
+        &"endTimeMs".into(),
+        &JsValue::from(span.end_time_ms as f64),
+    )
+    .map_err(|_| JsError::new("failed to set trace field"))?;
+    Reflect::set(
+        &obj,
+        &"durationUs".into(),
+        &JsValue::from(span.duration_us as f64),
+    )
+    .map_err(|_| JsError::new("failed to set trace field"))?;
     Reflect::set(
         &obj,
         &"status".into(),

@@ -4,7 +4,10 @@ use std::sync::Arc;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use zapcode_core::{ExecutionTrace, ResourceLimits, TraceSpan, TraceStatus, Value, VmState, ZapcodeRun, ZapcodeSnapshot};
+use zapcode_core::{
+    ExecutionTrace, ResourceLimits, TraceSpan, TraceStatus, Value, VmState, ZapcodeRun,
+    ZapcodeSnapshot,
+};
 
 // ---------------------------------------------------------------------------
 // Options

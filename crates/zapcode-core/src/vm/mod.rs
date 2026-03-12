@@ -2249,7 +2249,11 @@ impl ZapcodeRun {
             Ok(s) => {
                 let status = match &s {
                     VmState::Complete(_) => TraceStatus::Ok,
-                    VmState::Suspended { function_name, args, .. } => {
+                    VmState::Suspended {
+                        function_name,
+                        args,
+                        ..
+                    } => {
                         let mut span = execute_span;
                         span.set_attr("zapcode.suspended_on", function_name);
                         span.set_attr("zapcode.args_count", args.len());
