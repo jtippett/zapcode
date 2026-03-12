@@ -789,7 +789,10 @@ impl Vm {
                 let frame_index = self.frames.len() - 1;
                 let frame = self.current_frame();
                 let val = frame.locals.get(idx).cloned().unwrap_or(Value::Undefined);
-                self.last_load_source = Some(ReceiverSource::Local { frame_index, slot: idx });
+                self.last_load_source = Some(ReceiverSource::Local {
+                    frame_index,
+                    slot: idx,
+                });
                 self.push(val)?;
             }
             Instruction::StoreLocal(idx) => {
