@@ -23,6 +23,17 @@ pub enum VmState {
     },
 }
 
+/// Tracks where a method receiver originated so that mutations to `this`
+/// inside the method can be written back to the source variable.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub(crate) enum ReceiverSource {
+    /// The receiver was loaded from a global variable with the given name.
+    Global(String),
+    /// The receiver was loaded from a local variable at the given slot index
+    /// in the frame at the given depth (index into `self.frames`).
+    Local { frame_index: usize, slot: usize },
+}
+
 /// A call frame in the VM stack.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CallFrame {
@@ -32,6 +43,8 @@ pub(crate) struct CallFrame {
     pub(crate) stack_base: usize,
     /// The `this` value for method/constructor calls.
     pub(crate) this_value: Option<Value>,
+    /// Where the method receiver came from, so we can write back mutations.
+    pub(crate) receiver_source: Option<ReceiverSource>,
 }
 
 /// The Zapcode VM.
@@ -47,8 +60,12 @@ pub struct Vm {
     pub(crate) try_stack: Vec<TryInfo>,
     /// The last object a property was accessed on — used for method dispatch.
     last_receiver: Option<Value>,
+    /// Where the last receiver came from — used to write back `this` mutations.
+    last_receiver_source: Option<ReceiverSource>,
     /// The name of the last global loaded — used to identify known globals.
     last_global_name: Option<String>,
+    /// Tracks the source of the most recent Load instruction for receiver tracking.
+    last_load_source: Option<ReceiverSource>,
     /// Counter for assigning unique generator IDs.
     next_generator_id: u64,
 }
@@ -82,7 +99,9 @@ impl Vm {
             external_functions,
             try_stack: Vec::new(),
             last_receiver: None,
+            last_receiver_source: None,
             last_global_name: None,
+            last_load_source: None,
             next_generator_id: 0,
         }
     }
@@ -124,7 +143,9 @@ impl Vm {
             external_functions,
             try_stack,
             last_receiver: None,
+            last_receiver_source: None,
             last_global_name: None,
+            last_load_source: None,
             next_generator_id: 0,
         }
     }
@@ -220,12 +241,22 @@ impl Vm {
         let func = &self.program.functions[closure.func_id.0];
         let locals = Self::bind_params(&func.params, args, func.local_count);
 
+        // If this is a method call (has this_value from a receiver), transfer
+        // the receiver source so we can write back mutations on return.
+        let receiver_source = if this_value.is_some() {
+            self.last_receiver_source.take()
+        } else {
+            self.last_receiver_source = None;
+            None
+        };
+
         self.frames.push(CallFrame {
             func_index: Some(closure.func_id.0),
             ip: 0,
             locals,
             stack_base: self.stack.len(),
             this_value,
+            receiver_source,
         });
         Ok(())
     }
@@ -240,6 +271,7 @@ impl Vm {
             locals: Vec::new(),
             stack_base: 0,
             this_value: None,
+            receiver_source: None,
         });
 
         self.execute()
@@ -586,6 +618,7 @@ impl Vm {
                     locals,
                     stack_base,
                     this_value: None,
+                    receiver_source: None,
                 });
                 self.run_generator_until_yield_or_return(gen_obj)
             }
@@ -602,6 +635,7 @@ impl Vm {
                     locals: suspended.locals,
                     stack_base,
                     this_value: None,
+                    receiver_source: None,
                 });
                 self.run_generator_until_yield_or_return(gen_obj)
             }
@@ -752,8 +786,10 @@ impl Vm {
                 self.push(val)?;
             }
             Instruction::LoadLocal(idx) => {
+                let frame_index = self.frames.len() - 1;
                 let frame = self.current_frame();
                 let val = frame.locals.get(idx).cloned().unwrap_or(Value::Undefined);
+                self.last_load_source = Some(ReceiverSource::Local { frame_index, slot: idx });
                 self.push(val)?;
             }
             Instruction::StoreLocal(idx) => {
@@ -766,7 +802,8 @@ impl Vm {
             }
             Instruction::LoadGlobal(name) => {
                 let val = self.globals.get(&name).cloned().unwrap_or(Value::Undefined);
-                self.last_global_name = Some(name);
+                self.last_global_name = Some(name.clone());
+                self.last_load_source = Some(ReceiverSource::Global(name));
                 self.push(val)?;
             }
             Instruction::StoreGlobal(name) => {
@@ -990,6 +1027,9 @@ impl Vm {
                 // Store receiver for method calls
                 if matches!(result, Value::BuiltinMethod { .. } | Value::Function(_)) {
                     self.last_receiver = Some(obj);
+                    self.last_receiver_source = self.last_load_source.take();
+                } else {
+                    self.last_receiver_source = None;
                 }
                 self.push(result)?;
             }
@@ -1197,6 +1237,7 @@ impl Vm {
                             );
                             self.push(Value::Generator(gen_obj))?;
                             self.last_receiver = None;
+                            self.last_receiver_source = None;
                         } else {
                             let this_value = self.last_receiver.take();
                             self.push_call_frame(&closure, &args, this_value)?;
@@ -1330,6 +1371,25 @@ impl Vm {
                     if let Some(parent) = self.frames.last_mut() {
                         if parent.this_value.is_some() {
                             parent.this_value = Some(this_val.clone());
+                        }
+                    }
+                    // Write back the mutated `this` to the original variable
+                    // that the method receiver came from. This ensures that
+                    // value-type semantics work correctly for method calls
+                    // that mutate `this` properties (e.g., this.count += 1).
+                    if let Some(ref source) = frame.receiver_source {
+                        match source {
+                            ReceiverSource::Global(name) => {
+                                self.globals.insert(name.clone(), this_val.clone());
+                            }
+                            ReceiverSource::Local { frame_index, slot } => {
+                                if let Some(target_frame) = self.frames.get_mut(*frame_index) {
+                                    while target_frame.locals.len() <= *slot {
+                                        target_frame.locals.push(Value::Undefined);
+                                    }
+                                    target_frame.locals[*slot] = this_val.clone();
+                                }
+                            }
                         }
                     }
                     if matches!(return_val, Value::Undefined) {
@@ -1789,6 +1849,9 @@ impl Vm {
                         // Call the constructor with `this` bound to the instance
                         if let Some(ctor) = class_obj.get("__constructor__") {
                             if let Value::Function(closure) = ctor {
+                                // Clear receiver source — constructors should not
+                                // write back to a receiver variable.
+                                self.last_receiver_source = None;
                                 self.push_call_frame(closure, &args, Some(instance_val))?;
                                 self.last_receiver = None;
                             } else {
@@ -1866,6 +1929,7 @@ impl Vm {
                 }
 
                 if let Some(Value::Function(closure)) = super_ctor {
+                    self.last_receiver_source = None;
                     self.push_call_frame(&closure, &args, Some(this_val))?;
                     self.last_receiver = None;
                 } else {
