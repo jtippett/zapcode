@@ -1,0 +1,9 @@
+[project]
+name = "zapcode-bedrock-example"
+version = "0.0.1"
+description = "Zapcode + AWS Bedrock example"
+requires-python = ">=3.10"
+dependencies = [
+    "zapcode-ai",
+    "boto3",
+]

@@ -565,6 +565,78 @@ impl Vm {
         }
     }
 
+    /// Execute .then(), .catch(), or .finally() on a resolved/rejected promise.
+    /// Synchronously invokes the callback and returns a new promise wrapping the result.
+    fn execute_promise_method(
+        &mut self,
+        promise: Value,
+        method: &str,
+        args: Vec<Value>,
+    ) -> Result<Option<Value>> {
+        let (status, value, reason) = if let Value::Object(ref map) = promise {
+            let status = match map.get("status") {
+                Some(Value::String(s)) => s.to_string(),
+                _ => "pending".to_string(),
+            };
+            let value = map.get("value").cloned().unwrap_or(Value::Undefined);
+            let reason = map.get("reason").cloned().unwrap_or(Value::Undefined);
+            (status, value, reason)
+        } else {
+            return Ok(None);
+        };
+
+        let on_fulfilled = args.first().cloned().unwrap_or(Value::Undefined);
+        let on_rejected = args.get(1).cloned().unwrap_or(Value::Undefined);
+
+        match method {
+            "then" => {
+                if status == "resolved" {
+                    if matches!(on_fulfilled, Value::Function(_)) {
+                        let result = self.call_function_internal(&on_fulfilled, vec![value])?;
+                        Ok(Some(builtins::make_resolved_promise(result)))
+                    } else {
+                        // No callback — pass through the promise
+                        Ok(Some(promise))
+                    }
+                } else if status == "rejected" {
+                    if matches!(on_rejected, Value::Function(_)) {
+                        let result = self.call_function_internal(&on_rejected, vec![reason])?;
+                        Ok(Some(builtins::make_resolved_promise(result)))
+                    } else {
+                        // No onRejected — pass through the rejection
+                        Ok(Some(promise))
+                    }
+                } else {
+                    Ok(Some(promise))
+                }
+            }
+            "catch" => {
+                if status == "rejected" {
+                    let handler = args.first().cloned().unwrap_or(Value::Undefined);
+                    if matches!(handler, Value::Function(_)) {
+                        let result = self.call_function_internal(&handler, vec![reason])?;
+                        Ok(Some(builtins::make_resolved_promise(result)))
+                    } else {
+                        Ok(Some(promise))
+                    }
+                } else {
+                    // Resolved — pass through
+                    Ok(Some(promise))
+                }
+            }
+            "finally" => {
+                let handler = args.first().cloned().unwrap_or(Value::Undefined);
+                if matches!(handler, Value::Function(_)) {
+                    // finally callback receives no arguments
+                    self.call_function_internal(&handler, vec![])?;
+                }
+                // finally always passes through the original promise
+                Ok(Some(promise))
+            }
+            _ => Ok(None),
+        }
+    }
+
     fn alloc_generator_id(&mut self) -> u64 {
         let id = self.next_generator_id;
         self.next_generator_id += 1;
@@ -1338,6 +1410,13 @@ impl Vm {
                                     None
                                 }
                             }
+                            "__promise__" => {
+                                if let Some(promise) = receiver {
+                                    self.execute_promise_method(promise, &method_name, args)?
+                                } else {
+                                    None
+                                }
+                            }
                             global_name => builtins::call_global_method(
                                 global_name,
                                 &method_name,
@@ -1969,6 +2048,13 @@ impl Vm {
                         return Ok(val.clone());
                     }
                 }
+                // Check if this is a promise instance — expose .then/.catch/.finally
+                if builtins::is_promise(obj) && is_promise_method(name) {
+                    return Ok(Value::BuiltinMethod {
+                        object_name: Arc::from("__promise__"),
+                        method_name: Arc::from(name),
+                    });
+                }
                 // Check if this is a known global object — return builtin method handle
                 if let Some(global_name) = &self.last_global_name {
                     let known_globals = ["console", "Math", "JSON", "Object", "Array", "Promise"];
@@ -2084,6 +2170,10 @@ fn is_string_method(name: &str) -> bool {
             | "search"
             | "normalize"
     )
+}
+
+fn is_promise_method(name: &str) -> bool {
+    matches!(name, "then" | "catch" | "finally")
 }
 
 /// Main entry point: compile and run TypeScript code.

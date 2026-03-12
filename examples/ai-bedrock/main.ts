@@ -73,7 +73,7 @@ async function main() {
     model,
     system,
     tools,
-    maxSteps: 5,
+    maxSteps: 10,
     messages: [
       {
         role: "user",

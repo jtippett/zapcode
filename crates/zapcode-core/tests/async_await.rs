@@ -484,3 +484,168 @@ fn test_promise_resolve_creates_object() {
         other => panic!("expected object, got {:?}", other),
     }
 }
+
+// ── Promise .then() ──────────────────────────────────────────────────
+
+#[test]
+fn test_promise_then_resolved() {
+    let result = eval_ts(
+        r#"
+        const p = Promise.resolve(10);
+        const p2 = p.then(x => x * 2);
+        await p2
+    "#,
+    )
+    .unwrap();
+    assert_eq!(result, Value::Int(20));
+}
+
+#[test]
+fn test_promise_then_chain() {
+    let result = eval_ts(
+        r#"
+        const result = await Promise.resolve(5)
+            .then(x => x + 1)
+            .then(x => x * 3);
+        result
+    "#,
+    )
+    .unwrap();
+    assert_eq!(result, Value::Int(18));
+}
+
+#[test]
+fn test_promise_then_no_callback() {
+    let result = eval_ts(
+        r#"
+        const p = Promise.resolve(42);
+        const p2 = p.then();
+        await p2
+    "#,
+    )
+    .unwrap();
+    assert_eq!(result, Value::Int(42));
+}
+
+#[test]
+fn test_promise_then_on_rejected() {
+    let result = eval_ts(
+        r#"
+        const p = Promise.reject("oops");
+        const p2 = p.then(null, err => "caught: " + err);
+        await p2
+    "#,
+    )
+    .unwrap();
+    assert_eq!(result, Value::String("caught: oops".into()));
+}
+
+#[test]
+fn test_promise_then_rejected_passthrough() {
+    // .then with only onFulfilled should pass through the rejection
+    let result = eval_ts(
+        r#"
+        async function test() {
+            try {
+                const p = Promise.reject("fail");
+                const p2 = p.then(x => x);
+                return await p2;
+            } catch (e) {
+                return "error: " + e;
+            }
+        }
+        test()
+    "#,
+    )
+    .unwrap();
+    match result {
+        Value::String(s) => assert!(s.contains("fail"), "should contain 'fail', got: {}", s),
+        other => panic!("expected string, got {:?}", other),
+    }
+}
+
+// ── Promise .catch() ─────────────────────────────────────────────────
+
+#[test]
+fn test_promise_catch_rejected() {
+    let result = eval_ts(
+        r#"
+        const p = Promise.reject("bad");
+        const p2 = p.catch(err => "recovered: " + err);
+        await p2
+    "#,
+    )
+    .unwrap();
+    assert_eq!(result, Value::String("recovered: bad".into()));
+}
+
+#[test]
+fn test_promise_catch_resolved_passthrough() {
+    let result = eval_ts(
+        r#"
+        const p = Promise.resolve(99);
+        const p2 = p.catch(err => 0);
+        await p2
+    "#,
+    )
+    .unwrap();
+    assert_eq!(result, Value::Int(99));
+}
+
+// ── Promise .finally() ───────────────────────────────────────────────
+
+#[test]
+fn test_promise_finally_resolved() {
+    // finally runs the callback but preserves the original promise value
+    let result = eval_ts(
+        r#"
+        const p = Promise.resolve(42).finally(() => 999);
+        await p
+    "#,
+    )
+    .unwrap();
+    // finally does not change the resolved value
+    assert_eq!(result, Value::Int(42));
+}
+
+#[test]
+fn test_promise_finally_does_not_change_value() {
+    let result = eval_ts(
+        r#"
+        const val = await Promise.resolve("original").finally(() => "ignored");
+        val
+    "#,
+    )
+    .unwrap();
+    assert_eq!(result, Value::String("original".into()));
+}
+
+// ── Combined patterns (model-generated style) ────────────────────────
+
+#[test]
+fn test_promise_then_with_resolve_pattern() {
+    // Pattern: Promise.resolve().then() — common in model-generated code
+    let result = eval_ts(
+        r#"
+        const result = await Promise.resolve(42).then(x => x + 8);
+        result
+    "#,
+    )
+    .unwrap();
+    assert_eq!(result, Value::Int(50));
+}
+
+#[test]
+fn test_promise_then_catch_chain() {
+    let result = eval_ts(
+        r#"
+        const val = await Promise.resolve(10)
+            .then(x => x * 2)
+            .catch(e => 0)
+            .then(x => x + 5);
+        val
+    "#,
+    )
+    .unwrap();
+    assert_eq!(result, Value::Int(25));
+}
