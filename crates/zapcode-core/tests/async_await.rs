@@ -1135,8 +1135,7 @@ fn test_for_of_with_multiple_externals_per_iteration() {
         total
     "#;
 
-    let mut state =
-        start_with_externals(code, vec!["getWeather", "getFlights"], Vec::new());
+    let mut state = start_with_externals(code, vec!["getWeather", "getFlights"], Vec::new());
 
     for city in &["London", "Paris"] {
         // getWeather suspension
@@ -1151,7 +1150,10 @@ fn test_for_of_with_multiple_externals_per_iteration() {
                     .resume(Value::String(format!("w_{}", city).into()))
                     .unwrap();
             }
-            other => panic!("expected getWeather suspension for {}, got {:?}", city, other),
+            other => panic!(
+                "expected getWeather suspension for {}, got {:?}",
+                city, other
+            ),
         }
         // getFlights suspension
         match state {
@@ -1165,7 +1167,10 @@ fn test_for_of_with_multiple_externals_per_iteration() {
                     .resume(Value::String(format!("f_{}", city).into()))
                     .unwrap();
             }
-            other => panic!("expected getFlights suspension for {}, got {:?}", city, other),
+            other => panic!(
+                "expected getFlights suspension for {}, got {:?}",
+                city, other
+            ),
         }
     }
 
