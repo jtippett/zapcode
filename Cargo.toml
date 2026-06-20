@@ -18,11 +18,11 @@ repository = "https://github.com/TheUncharted/zapcode"
 
 [workspace.dependencies]
 # Parser
-oxc_parser = "0.117.0"
-oxc_ast = "0.117.0"
-oxc_allocator = "0.117.0"
-oxc_span = "0.117.0"
-oxc_syntax = "0.117.0"
+oxc_parser = "0.137.0"
+oxc_ast = "0.137.0"
+oxc_allocator = "0.137.0"
+oxc_span = "0.137.0"
+oxc_syntax = "0.137.0"
 
 # Serialization
 serde = { version = "1.0.228", features = ["derive", "rc"] }
