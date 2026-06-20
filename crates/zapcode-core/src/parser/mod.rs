@@ -17,8 +17,8 @@ pub fn parse(source: &str) -> Result<Program> {
     let source_type = SourceType::tsx();
     let ret = Parser::new(&allocator, &source, source_type).parse();
 
-    if !ret.errors.is_empty() {
-        let msgs: Vec<String> = ret.errors.iter().map(|e| e.to_string()).collect();
+    if !ret.diagnostics.is_empty() {
+        let msgs: Vec<String> = ret.diagnostics.iter().map(|e| e.to_string()).collect();
         return Err(ZapcodeError::ParseError(msgs.join("\n")));
     }
 
