@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.5.2](https://github.com/TheUncharted/zapcode/compare/v1.5.1...v1.5.2) (2026-06-20)
+
+
+### Bug Fixes
+
+* **parser:** add bounds guards to trailing paren stripping in wrap_trailing_object ([3139709](https://github.com/TheUncharted/zapcode/commit/3139709cd5e1e46a220177534e81ed49de0fea11))
+* **parser:** handle keyword+paren+block constructs in wrap_trailing_object ([b4926cb](https://github.com/TheUncharted/zapcode/commit/b4926cbf389b774408ded4413d853ce2762cd47c))
+* **parser:** handle keyword+paren+block constructs in wrap_trailing_object ([0cf2f01](https://github.com/TheUncharted/zapcode/commit/0cf2f01d1124900302777ccbe0cdf08d5e7ec301))
+* **parser:** handle keyword+paren+block constructs in wrap_trailing_object ([c2bc32d](https://github.com/TheUncharted/zapcode/commit/c2bc32d7ef25f8f03b4897345e6cae3b81bd900a))
+
 ## [1.5.1](https://github.com/TheUncharted/zapcode/compare/v1.5.0...v1.5.1) (2026-03-21)
 
 
