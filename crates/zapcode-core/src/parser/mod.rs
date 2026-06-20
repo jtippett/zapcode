@@ -85,7 +85,29 @@ fn wrap_trailing_object(source: &str) -> String {
             return source.to_string();
         }
         // If preceded by a keyword that takes a block, don't wrap
-        let last_word = before
+        // Strip trailing parenthesized groups before extracting last_word
+        // e.g. "if (true)" → "if", "for (let i=0; i<10; i++)" → "for"
+        let before_for_keyword = {
+            let mut s = before.as_bytes();
+            while s.last() == Some(&b')') {
+                let mut depth = 1;
+                let mut i = s.len() - 2;
+                while depth > 0 && i > 0 {
+                    match s[i] {
+                        b')' => depth += 1,
+                        b'(' => depth -= 1,
+                        _ => {}
+                    }
+                    if depth > 0 {
+                        i -= 1;
+                    }
+                }
+                s = &s[..i];
+            }
+            std::str::from_utf8(s).unwrap_or(before).trim_end()
+        };
+
+        let last_word = before_for_keyword
             .rsplit(|c: char| !c.is_alphanumeric() && c != '_')
             .next()
             .unwrap_or("");
