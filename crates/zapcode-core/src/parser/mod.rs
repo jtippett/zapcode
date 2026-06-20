@@ -90,6 +90,9 @@ fn wrap_trailing_object(source: &str) -> String {
         let before_for_keyword = {
             let mut s = before.as_bytes();
             while s.last() == Some(&b')') {
+                if s.len() < 2 {
+                    break;
+                }
                 let mut depth = 1;
                 let mut i = s.len() - 2;
                 while depth > 0 && i > 0 {
@@ -101,6 +104,9 @@ fn wrap_trailing_object(source: &str) -> String {
                     if depth > 0 {
                         i -= 1;
                     }
+                }
+                if depth > 0 {
+                    break;
                 }
                 s = &s[..i];
             }
