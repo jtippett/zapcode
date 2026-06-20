@@ -167,3 +167,62 @@ fn test_trailing_object_after_semicolon() {
         other => panic!("expected object, got {:?}", other),
     }
 }
+
+// --- Bug fix: keyword+paren+block constructs with object literal args ---
+
+#[test]
+fn test_if_block_with_object_arg() {
+    let result = eval_ts("if (true) { Promise.resolve({ a: 1 }); }").unwrap();
+    assert_eq!(result, Value::Undefined);
+}
+
+#[test]
+fn test_for_block_with_object_arg() {
+    let result = eval_ts("let sum = 0; for (let i = 0; i < 3; i++) { sum += i; } sum").unwrap();
+    assert_eq!(result, Value::Int(3));
+}
+
+#[test]
+fn test_while_block_with_object_arg() {
+    let result = eval_ts("let x = 0; while (x < 3) { x++; } x").unwrap();
+    assert_eq!(result, Value::Int(3));
+}
+
+#[test]
+fn test_catch_block_with_object_arg() {
+    let result = eval_ts(
+        "let caught = false; try { throw new Error('test'); } catch (e) { caught = true; } caught",
+    )
+    .unwrap();
+    assert_eq!(result, Value::Bool(true));
+}
+
+#[test]
+fn test_nested_if_block_with_object_arg() {
+    let result = eval_ts("let x = 0; if (true) { if (true) { x = 42; } } x").unwrap();
+    assert_eq!(result, Value::Int(42));
+}
+
+#[test]
+fn test_else_if_block_with_object_arg() {
+    let result = eval_ts("let x = 0; if (false) { x = 1; } else if (true) { x = 2; } x").unwrap();
+    assert_eq!(result, Value::Int(2));
+}
+
+#[test]
+fn test_for_of_block_with_object_arg() {
+    let result = eval_ts("let sum = 0; for (const x of [1, 2, 3]) { sum += x; } sum").unwrap();
+    assert_eq!(result, Value::Int(6));
+}
+
+#[test]
+fn test_if_block_with_await_and_object_arg() {
+    let result = eval_ts("if (true) { await Promise.resolve({ a: 1 }); }").unwrap();
+    assert_eq!(result, Value::Undefined);
+}
+
+#[test]
+fn test_if_block_with_user_function_and_object_arg() {
+    let result = eval_ts("function f(x){ return x; }\nif (true) { f({ a: 1 }); }").unwrap();
+    assert_eq!(result, Value::Undefined);
+}
