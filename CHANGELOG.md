@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.3](https://github.com/TheUncharted/zapcode/compare/v1.5.2...v1.5.3) (2026-06-20)
+
+
+### Bug Fixes
+
+* trigger release for oxc upgrade ([9d83368](https://github.com/TheUncharted/zapcode/commit/9d83368eea777e7919364f0f340fe3cbe86de30f))
+
 ## [1.5.2](https://github.com/TheUncharted/zapcode/compare/v1.5.1...v1.5.2) (2026-06-20)
 
 
