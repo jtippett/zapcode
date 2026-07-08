@@ -54,3 +54,11 @@ fn test_try_no_error() {
     .unwrap();
     assert_eq!(result, Value::Int(42));
 }
+
+#[test]
+fn test_regex_literal_is_rejected_not_silently_ignored() {
+    // Regex is unsupported; it must be a loud error, not a silent no-op.
+    let err = zapcode_core::vm::eval_ts("'abc123'.replace(/[0-9]+/, '#')").unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("regular expressions"), "got: {msg}");
+}

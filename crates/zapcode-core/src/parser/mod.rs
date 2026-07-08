@@ -809,9 +809,16 @@ impl<'a> AstLowerer<'a> {
                     exprs: exprs?,
                 })
             }
-            ast::Expression::RegExpLiteral(re) => Ok(Expr::RegExpLit {
-                pattern: format!("{:?}", re.regex.pattern),
-                flags: re.regex.flags.to_string(),
+            // Regular expressions are not implemented. Rather than silently
+            // lowering to `undefined` — which makes `str.replace(/re/, x)` a
+            // no-op that returns the original string (a silent wrong answer) —
+            // reject them up front with a clear, located error.
+            ast::Expression::RegExpLiteral(re) => Err(ZapcodeError::UnsupportedSyntax {
+                span: format!("{}:{}", re.span.start, re.span.end),
+                description: "regular expressions are not supported; use string \
+                              methods (includes, indexOf, split, replace with a \
+                              string argument) instead"
+                    .to_string(),
             }),
             ast::Expression::Identifier(id) => {
                 let name = id.name.to_string();
