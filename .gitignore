@@ -1,35 +1,29 @@
-# Rust
-**/target
-**/*.rs.bk
 
-# Node.js
-node_modules/
-dist/
-package-lock.json
-
-# NAPI-RS build artifacts
-*.node
-crates/zapcode-js/npm/
-
-# Python
 __pycache__/
-*.pyc
-.python-version
-
-# Editor
-*.swp
-*.swo
-
-# OS
-.DS_Store
-
-# Generated copies (CI creates these)
-crates/zapcode-py/README.md
-packages/zapcode-ai/README.md
-examples/*/Cargo.lock
-
-# Claude Code
 .claude/
-
-# Secrets
+.DS_Store
 .env
+.python-version
+*.node
+*.pyc
+*.swo
+*.swp
+**/*.rs.bk
+**/target
+# Claude Code
+# Editor
+# Generated copies (CI creates these)
+# NAPI-RS build artifacts
+# Node.js
+# OS
+# Python
+# Rust
+# Secrets
+crates/zapcode-js/npm/
+crates/zapcode-py/README.md
+dist/
+examples/*/Cargo.lock
+node_modules/
+package-lock.json
+packages/zapcode-ai/README.md
+vendor/

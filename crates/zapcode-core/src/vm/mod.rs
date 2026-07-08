@@ -362,7 +362,10 @@ impl Vm {
             // Resource checks
             self.tracker.check_time(&self.limits)?;
 
-            let frame = self.frames.last().unwrap();
+            let frame = self
+                .frames
+                .last()
+                .ok_or_else(|| ZapcodeError::RuntimeError("no active call frame".to_string()))?;
             let instructions = match frame.func_index {
                 Some(idx) => &self.program.functions[idx].instructions,
                 None => &self.program.instructions,
@@ -593,7 +596,10 @@ impl Vm {
         loop {
             self.tracker.check_time(&self.limits)?;
 
-            let frame = self.frames.last().unwrap();
+            let frame = self
+                .frames
+                .last()
+                .ok_or_else(|| ZapcodeError::RuntimeError("no active call frame".to_string()))?;
             let instructions = match frame.func_index {
                 Some(idx) => &self.program.functions[idx].instructions,
                 None => &self.program.instructions,
@@ -1077,7 +1083,10 @@ impl Vm {
         let target_frame_depth = self.frames.len() - 1;
         loop {
             self.tracker.check_time(&self.limits)?;
-            let frame = self.frames.last().unwrap();
+            let frame = self
+                .frames
+                .last()
+                .ok_or_else(|| ZapcodeError::RuntimeError("no active call frame".to_string()))?;
             let instructions = match frame.func_index {
                 Some(idx) => &self.program.functions[idx].instructions,
                 None => &self.program.instructions,
