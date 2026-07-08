@@ -589,10 +589,7 @@ fn test_parse_int() {
 
 #[test]
 fn test_parse_float() {
-    assert_eq!(
-        eval_ts("parseFloat('2.5xyz')").unwrap(),
-        Value::Float(2.5)
-    );
+    assert_eq!(eval_ts("parseFloat('2.5xyz')").unwrap(), Value::Float(2.5));
     assert_eq!(
         eval_ts("parseFloat('  1e3')").unwrap(),
         Value::Float(1000.0)

@@ -41,6 +41,10 @@ pub struct FunctionId(pub usize);
 pub struct Closure {
     pub func_id: FunctionId,
     pub captured: Vec<(String, Value)>,
+    /// Own properties assigned to the function object (e.g. `F.prototype`,
+    /// `f.meta = …`). Value-typed like arrays/objects; written back on mutation.
+    #[serde(default)]
+    pub properties: IndexMap<Arc<str>, Value>,
 }
 
 /// The state of a generator object.

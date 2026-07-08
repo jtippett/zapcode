@@ -30,7 +30,7 @@ approximate.
 
 ## Headline result (commit-pinned suite)
 
-~**22%** of executed tests pass overall, **0 VM panics**. But the denominator is
+~**22.3%** of executed tests pass overall, **0 VM panics**. But the denominator is
 dominated by APIs that are explicit non-goals for a minimal agent sandbox, so the
 raw number understates coverage of the language we care about. Reading by area:
 
@@ -44,16 +44,32 @@ raw number understates coverage of the language we care about. Reading by area:
   because most of their tests exercise property descriptors, getters/setters, and
   `Symbol.species` — which need the object-model features below.
 
-## Biggest coverage lever
+## Progress
 
-**Plain functions are not objects.** They can't hold properties (`f.x = 1`
-throws), have no `.prototype`, and `new` only works on `class`, not `function`.
-The classic constructor-function pattern doesn't work, which is why Test262's own
-harness can't load and why much of `built-ins/Object` and `built-ins/Array` fails.
-Making functions first-class objects (property bag + prototype + `new` on
-functions) is the single change that would move the most tests — and it is a
-non-trivial change to the value model (serialization, cloning, `new`/property
-dispatch). Tracked as a decision, not yet done.
+- **Global builtin functions** (`parseInt`, `parseFloat`, `isNaN`, `isFinite`,
+  `Number`, `String`, `Boolean`) — added. `built-ins/parseInt` 0→73%,
+  `parseFloat` 0→76%, `Boolean` 21→42%.
+- **Functions are now objects** (bounded) — they hold own properties, expose
+  `name`/`length`/`prototype`, and `new F()` builds a real `this` and copies the
+  prototype's methods. The classic constructor pattern works, including the
+  nested `F.prototype.method = function(){}` form:
 
-Quick wins by comparison: `parseInt`/`parseFloat` are entirely missing (0%) and
-are simple global builtins.
+  ```js
+  function Box(v) { this.v = v; }
+  Box.prototype.get = function () { return this.v; };
+  new Box(42).get(); // 42
+  ```
+
+## Biggest remaining lever
+
+**Closure capture is O(n²)/exponential.** Every function literal captures *all*
+current globals *by value*, so a file that defines several functions in sequence
+blows up (stack overflow / timeout) — which is why Test262's own multi-function
+harness still can't load, and why many multi-function tests fail. Switching to
+lexical capture (only free variables, by reference) is the single change that
+would move the most tests now. It is a real change to the closure/scope model.
+
+Also still missing for `built-ins/Object`/`Array`/`Function`: property
+descriptors (`defineProperty`, getters/setters, enumerability), `Symbol`, and the
+`bind`/`call`/`apply` function methods — most of those suites test these, not
+behavior.

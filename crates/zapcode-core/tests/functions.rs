@@ -79,3 +79,49 @@ fn test_entries_map_destructure() {
         eval_ts("Object.entries({ a: 1, b: 2 }).map(([k, v]) => `${k}${v}`).join(',')").unwrap();
     assert_eq!(r, Value::String("a1,b2".into()));
 }
+
+// ── functions as objects (regression: functions weren't objects) ─────────────
+
+#[test]
+fn test_function_holds_properties() {
+    assert_eq!(
+        eval_ts("function f(){} f.x = 7; f.x").unwrap(),
+        Value::Int(7)
+    );
+}
+
+#[test]
+fn test_function_name_and_length() {
+    assert_eq!(
+        eval_ts("function foo(){} foo.name").unwrap(),
+        Value::String("foo".into())
+    );
+    assert_eq!(
+        eval_ts("function f(a, b, c){} f.length").unwrap(),
+        Value::Int(3)
+    );
+}
+
+#[test]
+fn test_new_on_function_creates_this() {
+    assert_eq!(
+        eval_ts("function F(){ this.x = 5; } new F().x").unwrap(),
+        Value::Int(5)
+    );
+}
+
+#[test]
+fn test_constructor_prototype_whole_object() {
+    let r = eval_ts(
+        "function F(){} F.prototype = { greet() { return 'hi'; } }; const o = new F(); o.greet()",
+    )
+    .unwrap();
+    assert_eq!(r, Value::String("hi".into()));
+}
+
+#[test]
+fn test_constructor_prototype_nested_assign() {
+    // The classic (and Test262-harness) pattern: F.prototype.method = function(){}
+    let r = eval_ts("function Box(v){ this.v = v; } Box.prototype.get = function(){ return this.v; }; new Box(42).get()").unwrap();
+    assert_eq!(r, Value::Int(42));
+}

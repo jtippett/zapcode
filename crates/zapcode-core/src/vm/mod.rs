@@ -1528,6 +1528,12 @@ impl Vm {
                         // Push modified object back so compile_store can store it
                         self.push(Value::Object(obj))?;
                     }
+                    // Functions are objects: own properties (incl. `prototype`)
+                    // are stored on the closure and written back to the variable.
+                    Value::Function(mut closure) => {
+                        closure.properties.insert(Arc::from(name.as_str()), value);
+                        self.push(Value::Function(closure))?;
+                    }
                     _ => {
                         return Err(ZapcodeError::TypeError(format!(
                             "cannot set property '{}' on {}",
@@ -1673,6 +1679,7 @@ impl Vm {
                 let closure = Closure {
                     func_id: FunctionId(func_idx),
                     captured,
+                    properties: IndexMap::new(),
                 };
                 self.push(Value::Function(closure))?;
             }
@@ -2398,8 +2405,25 @@ impl Vm {
                         }
                     }
                     Value::Function(closure) => {
-                        // `new` on a plain function — just call it
-                        self.push_call_frame(closure, &args, None)?;
+                        // `new` on a plain function: create `this`, copy the
+                        // function's prototype methods onto it (mirrors class
+                        // construction — no live prototype chain), run the body
+                        // with `this` bound. The Return handler writes back the
+                        // mutated `this`.
+                        let mut instance = IndexMap::new();
+                        if let Some(Value::Object(proto)) = closure.properties.get("prototype") {
+                            for (k, v) in proto {
+                                instance.insert(k.clone(), v.clone());
+                            }
+                        }
+                        if let Some(name) = self.program.functions[closure.func_id.0].name.clone() {
+                            instance.insert(
+                                Arc::from("__class__"),
+                                Value::String(Arc::from(name.as_str())),
+                            );
+                        }
+                        self.last_receiver_source = None;
+                        self.push_call_frame(closure, &args, Some(Value::Object(instance)))?;
                         self.last_receiver = None;
                     }
                     _ => {
@@ -2541,6 +2565,28 @@ impl Vm {
                 }),
                 _ => Ok(Value::Undefined),
             },
+            Value::Function(closure) => {
+                if let Some(val) = closure.properties.get(name) {
+                    return Ok(val.clone());
+                }
+                match name {
+                    // `prototype` auto-exists as an object; a subsequent write
+                    // (`F.prototype.m = …`) is persisted back via SetProperty.
+                    "prototype" => Ok(Value::Object(IndexMap::new())),
+                    "name" => {
+                        let n = self.program.functions[closure.func_id.0]
+                            .name
+                            .clone()
+                            .unwrap_or_default();
+                        Ok(Value::String(Arc::from(n.as_str())))
+                    }
+                    "length" => {
+                        let len = self.program.functions[closure.func_id.0].params.len();
+                        Ok(Value::Int(len as i64))
+                    }
+                    _ => Ok(Value::Undefined),
+                }
+            }
             _ => Ok(Value::Undefined),
         }
     }
