@@ -203,6 +203,25 @@ impl Vm {
             .ok_or_else(|| ZapcodeError::RuntimeError("stack underflow".to_string()))
     }
 
+    /// Write a value back to the variable a method receiver was loaded from.
+    /// Used to give value-typed arrays/objects reference-like mutation semantics
+    /// for in-place methods (e.g. `arr.push(x)`) and `this` mutation.
+    fn write_back_receiver(&mut self, source: &ReceiverSource, value: Value) {
+        match source {
+            ReceiverSource::Global(name) => {
+                self.globals.insert(name.clone(), value);
+            }
+            ReceiverSource::Local { frame_index, slot } => {
+                if let Some(target_frame) = self.frames.get_mut(*frame_index) {
+                    while target_frame.locals.len() <= *slot {
+                        target_frame.locals.push(Value::Undefined);
+                    }
+                    target_frame.locals[*slot] = value;
+                }
+            }
+        }
+    }
+
     fn peek(&self) -> Result<&Value> {
         self.stack
             .last()
@@ -1363,33 +1382,89 @@ impl Vm {
             // Objects & Arrays
             Instruction::CreateArray(count) => {
                 self.tracker.track_allocation(&self.limits)?;
-                let mut arr = Vec::with_capacity(count);
+                let mut popped = Vec::with_capacity(count);
                 for _ in 0..count {
-                    arr.push(self.pop()?);
+                    popped.push(self.pop()?);
                 }
-                arr.reverse();
+                popped.reverse();
+                let mut arr = Vec::with_capacity(count);
+                for v in popped {
+                    match v {
+                        // A spread element flattens its source into the array.
+                        Value::Spread(inner) => match *inner {
+                            Value::Array(items) => arr.extend(items),
+                            Value::String(s) => arr.extend(
+                                s.chars()
+                                    .map(|c| Value::String(Arc::from(c.to_string().as_str()))),
+                            ),
+                            other => {
+                                return Err(ZapcodeError::TypeError(format!(
+                                    "{} is not iterable (cannot spread into array)",
+                                    other.type_name()
+                                )));
+                            }
+                        },
+                        other => arr.push(other),
+                    }
+                }
                 self.push(Value::Array(arr))?;
             }
             Instruction::CreateObject(count) => {
                 self.tracker.track_allocation(&self.limits)?;
-                let mut obj = IndexMap::new();
-                // Pop key-value pairs (or spread values)
-                let mut entries = Vec::new();
+
+                // Each of `count` entries is either a normal property — [key,
+                // value] with value on top — or a single `Value::Spread(source)`.
+                enum Entry {
+                    Kv(Value, Value),
+                    Spread(Value),
+                }
+
+                let mut entries = Vec::with_capacity(count);
                 for _ in 0..count {
-                    let val = self.pop()?;
-                    let key = self.pop()?;
-                    entries.push((key, val));
+                    match self.pop()? {
+                        Value::Spread(inner) => entries.push(Entry::Spread(*inner)),
+                        val => {
+                            let key = self.pop()?;
+                            entries.push(Entry::Kv(key, val));
+                        }
+                    }
                 }
                 entries.reverse();
-                for (key, val) in entries {
-                    match key {
-                        Value::String(k) => {
+
+                let mut obj: IndexMap<Arc<str>, Value> = IndexMap::new();
+                for entry in entries {
+                    match entry {
+                        Entry::Kv(key, val) => {
+                            let k = match key {
+                                Value::String(k) => k,
+                                other => Arc::from(other.to_js_string().as_str()),
+                            };
                             obj.insert(k, val);
                         }
-                        _ => {
-                            let k: Arc<str> = Arc::from(key.to_js_string().as_str());
-                            obj.insert(k, val);
-                        }
+                        // Merge the source's own enumerable properties; a later
+                        // key overrides an earlier one (keeping its position).
+                        Entry::Spread(src) => match src {
+                            Value::Object(map) => {
+                                for (k, v) in map {
+                                    obj.insert(k, v);
+                                }
+                            }
+                            Value::Array(items) => {
+                                for (i, v) in items.into_iter().enumerate() {
+                                    obj.insert(Arc::from(i.to_string().as_str()), v);
+                                }
+                            }
+                            Value::String(s) => {
+                                for (i, c) in s.chars().enumerate() {
+                                    obj.insert(
+                                        Arc::from(i.to_string().as_str()),
+                                        Value::String(Arc::from(c.to_string().as_str())),
+                                    );
+                                }
+                            }
+                            // {...null}, {...undefined}, {...5}: no own props — ignore.
+                            _ => {}
+                        },
                     }
                 }
                 self.push(Value::Object(obj))?;
@@ -1492,7 +1567,10 @@ impl Vm {
                 self.push(obj)?;
             }
             Instruction::Spread => {
-                // Handled contextually in CreateArray/CreateObject
+                // Wrap the top value in a transient marker that CreateArray /
+                // CreateObject recognize and flatten.
+                let v = self.pop()?;
+                self.push(Value::Spread(Box::new(v)))?;
             }
             Instruction::In => {
                 let right = self.pop()?;
@@ -1622,6 +1700,21 @@ impl Vm {
                     } => {
                         let receiver = self.last_receiver.take();
                         let result = match object_name.as_ref() {
+                            "__array__" if builtins::is_mutating_array_method(&method_name) => {
+                                // Owned in-place mutation, then write the result
+                                // back to the receiver variable (arrays are
+                                // value-typed on the stack).
+                                if let Some(Value::Array(mut arr)) = receiver {
+                                    let ret =
+                                        builtins::call_array_mutator(&mut arr, &method_name, &args);
+                                    if let Some(source) = self.last_receiver_source.take() {
+                                        self.write_back_receiver(&source, Value::Array(arr));
+                                    }
+                                    ret
+                                } else {
+                                    None
+                                }
+                            }
                             "__array__" => {
                                 if let Some(Value::Array(arr)) = &receiver {
                                     // Check if this is a callback method first
