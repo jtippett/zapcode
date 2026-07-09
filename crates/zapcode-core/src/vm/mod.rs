@@ -1363,33 +1363,89 @@ impl Vm {
             // Objects & Arrays
             Instruction::CreateArray(count) => {
                 self.tracker.track_allocation(&self.limits)?;
-                let mut arr = Vec::with_capacity(count);
+                let mut popped = Vec::with_capacity(count);
                 for _ in 0..count {
-                    arr.push(self.pop()?);
+                    popped.push(self.pop()?);
                 }
-                arr.reverse();
+                popped.reverse();
+                let mut arr = Vec::with_capacity(count);
+                for v in popped {
+                    match v {
+                        // A spread element flattens its source into the array.
+                        Value::Spread(inner) => match *inner {
+                            Value::Array(items) => arr.extend(items),
+                            Value::String(s) => arr.extend(
+                                s.chars()
+                                    .map(|c| Value::String(Arc::from(c.to_string().as_str()))),
+                            ),
+                            other => {
+                                return Err(ZapcodeError::TypeError(format!(
+                                    "{} is not iterable (cannot spread into array)",
+                                    other.type_name()
+                                )));
+                            }
+                        },
+                        other => arr.push(other),
+                    }
+                }
                 self.push(Value::Array(arr))?;
             }
             Instruction::CreateObject(count) => {
                 self.tracker.track_allocation(&self.limits)?;
-                let mut obj = IndexMap::new();
-                // Pop key-value pairs (or spread values)
-                let mut entries = Vec::new();
+
+                // Each of `count` entries is either a normal property — [key,
+                // value] with value on top — or a single `Value::Spread(source)`.
+                enum Entry {
+                    Kv(Value, Value),
+                    Spread(Value),
+                }
+
+                let mut entries = Vec::with_capacity(count);
                 for _ in 0..count {
-                    let val = self.pop()?;
-                    let key = self.pop()?;
-                    entries.push((key, val));
+                    match self.pop()? {
+                        Value::Spread(inner) => entries.push(Entry::Spread(*inner)),
+                        val => {
+                            let key = self.pop()?;
+                            entries.push(Entry::Kv(key, val));
+                        }
+                    }
                 }
                 entries.reverse();
-                for (key, val) in entries {
-                    match key {
-                        Value::String(k) => {
+
+                let mut obj: IndexMap<Arc<str>, Value> = IndexMap::new();
+                for entry in entries {
+                    match entry {
+                        Entry::Kv(key, val) => {
+                            let k = match key {
+                                Value::String(k) => k,
+                                other => Arc::from(other.to_js_string().as_str()),
+                            };
                             obj.insert(k, val);
                         }
-                        _ => {
-                            let k: Arc<str> = Arc::from(key.to_js_string().as_str());
-                            obj.insert(k, val);
-                        }
+                        // Merge the source's own enumerable properties; a later
+                        // key overrides an earlier one (keeping its position).
+                        Entry::Spread(src) => match src {
+                            Value::Object(map) => {
+                                for (k, v) in map {
+                                    obj.insert(k, v);
+                                }
+                            }
+                            Value::Array(items) => {
+                                for (i, v) in items.into_iter().enumerate() {
+                                    obj.insert(Arc::from(i.to_string().as_str()), v);
+                                }
+                            }
+                            Value::String(s) => {
+                                for (i, c) in s.chars().enumerate() {
+                                    obj.insert(
+                                        Arc::from(i.to_string().as_str()),
+                                        Value::String(Arc::from(c.to_string().as_str())),
+                                    );
+                                }
+                            }
+                            // {...null}, {...undefined}, {...5}: no own props — ignore.
+                            _ => {}
+                        },
                     }
                 }
                 self.push(Value::Object(obj))?;
@@ -1492,7 +1548,10 @@ impl Vm {
                 self.push(obj)?;
             }
             Instruction::Spread => {
-                // Handled contextually in CreateArray/CreateObject
+                // Wrap the top value in a transient marker that CreateArray /
+                // CreateObject recognize and flatten.
+                let v = self.pop()?;
+                self.push(Value::Spread(Box::new(v)))?;
             }
             Instruction::In => {
                 let right = self.pop()?;
